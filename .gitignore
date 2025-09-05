@@ -3,6 +3,9 @@
 
 # But not these:
 !.gitignore
+
+!README.md
+
 !Approximant
 !Approximant/Approximant_Bandstructure.py
 !Approximant/Approximant_Curvature.py
@@ -22,6 +25,5 @@
 !Updated\ Geometry/Plot_N_bands.py
 !Updated\ Geometry/QBZ_Bandstructure.py
 !Updated\ Geometry/Symmetries.py
-!Updated\ Geometry/ThreeState.py
 
 
