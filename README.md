@@ -27,3 +27,4 @@ This folder contains code used in analysing the quasiperiodic system directly. (
 - Plot_N_bands.py: code for plotting the number of bands below the topological gap in the system, against order of plane-wave basis set.
 - QBZ_Bandstructure.py: code for calculating and plotting the bandstructure and Berry curvature over the 'quasi-Brillouin zone' (QBZ) (valid in the weak-coupling limit) using a minimal basis of plane-waves required at first-order in the coupling strength.
 - Symmetries.py: code for investigating the symmetry properties of the system in the weak-coupling limit. Representations of different symmetry operators are constructed in the minimal basis of states needed to span the QBZ, and their commutation relations with each other and different terms in the Hamiltonian are calculated.
+- B_eff.py: code for calculating, plotting and analysing the effective magnetic field B_eff for a particle adiabatically following the low-energy spinor of the system.
