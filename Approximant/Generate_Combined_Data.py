@@ -4,10 +4,10 @@ import Approximant_Vectors as AV
 import Approximant_Curvature as AC
 
 ### ---- System Parameters ---- ###
-N = 3
+N = 5
 phi0 = 0.
-a = 4
-R = 5
+a = 3
+R = 8
 l = np.arange(R)
 G_vects_exact = np.column_stack((np.cos(2*np.pi*l/R),
                                 np.sin(2*np.pi*l/R)))
@@ -18,11 +18,11 @@ g_vects = np.roll(G_vects, -1, axis=0) - G_vects
 # g3 = np.roll(G_vects, -3, axis=0) - G_vects
 # g_vects = np.row_stack((g1, g2, g3))
 
-# U_vals = np.array([0.02, 0.03, 0.15, 0.15, 0.15, 0.3, 0.3])
-# V_vals = np.array([0.14, 0.14, 0.08, 0.14, 0.26, 0.26, 0.3])
-data = np.load('Req_5Fold.npz')
-U_vals = data['P_req'][:,0]
-V_vals = data['P_req'][:,1]
+U_vals = np.array([0.3])
+V_vals = np.array([0.24])
+# data = np.load('Req_5Fold.npz')
+# U_vals = data['P_req'][:,0]
+# V_vals = data['P_req'][:,1]
 # V = np.arange(0.01, 0.4, 0.02)
 # U = np.arange(0., 0.41, 0.02)
 # U_vals, V_vals = np.meshgrid(U, V)
@@ -45,7 +45,7 @@ V_vals = data['P_req'][:,1]
 # N_vals = np.array([5])
 
 idx_dict = {1:1, 2:3, 3:13, 4:27, 5:45, 6:55, 7:81 , 8:111, 9:125, 10:163}
-max_idx = 27
+max_idx = 13
 ### -------------------------- ###
 
 ### -- Calculation Settings -- ###
@@ -54,7 +54,7 @@ basis = ABS.calc_square_basis_states(a=a, cutoff=cutoff)
 dE = 0.001
 sparse = True
 num_evals = 30
-N_q = 31
+N_q = 201
 gauge_idx = 0
 calc_idx = False
 use_dict_idx = False
@@ -82,7 +82,7 @@ for i in range(len(U_vals)):
     qx_vals = np.linspace(-0.5/a, 0.5/a, N_q)
     qy_vals = np.copy(qx_vals)
     E_vals, evects_arr = ABS.calc_BS_surface(qx=qx_vals, qy=qy_vals, basis=basis, 
-                                 G_vects=G_vects, U0=U0, V=V, N=N, sparse=sparse, num_evals=num_evals,
+                                 G_vects=G_vects, U0=U0, V=V/2, N=N, sparse=sparse, num_evals=num_evals,
                                  return_evects=True, R=R, g_vects=g_vects, phi0=phi0)
     
     print('Calculating density of states...')
@@ -98,12 +98,12 @@ for i in range(len(U_vals)):
                                               n_vals=np.arange(int(max_idx+1)), save=False,
                                               gauge_idx=gauge_idx)
 
-    file_str = 'Data/5Fold/Data_NonAb'
-    file_str += ('_a' + str(int(a)) + '_U' + str(np.round(U0,4)) +  '_N' 
-                + str(int(np.round(N))) + '_V' + str(np.round(V0,4)) + '.npz')
-    # file_str = 'Data/8Fold/Old_Data/Data_'
-    # file_str += ('R' + str(int(R)) + '_a' + str(int(a)) + '_c' + str(np.round(cutoff,1)) + '_U' + str(np.round(U0,4)) +  '_N' 
+    # file_str = 'Approximant/Data/5Fold/Data_NonAb'
+    # file_str += ('_a' + str(int(a)) + '_U' + str(np.round(U0,4)) +  '_N' 
     #             + str(int(np.round(N))) + '_V' + str(np.round(V0,4)) + '.npz')
+    file_str = 'Data/8Fold/Old_Data/Data_'
+    file_str += ('R' + str(int(R)) + '_a' + str(int(a)) + '_c' + str(np.round(cutoff,1)) + '_U' + str(np.round(U0,4)) +  '_N' 
+                + str(int(np.round(N))) + '_V' + str(np.round(V0,4)) + '_fine.npz')
     np.savez(file_str, qx_vals=qx_vals, qy_vals=qy_vals, 
              E_vals=E_vals, dos_vals=dos_vals, E_bins=E_bins, dE=dE,
              curv_vals=curv_vals, C=C, gauge_idx=gauge_idx, max_idx=max_idx,
