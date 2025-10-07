@@ -318,10 +318,18 @@ def calc_q_BZ_boundary(q0=None, a=3):
     return np.concatenate((q_vals_01, q_vals_12, q_vals_23, q_vals_30))
 
 
-def calc_DoS(filename=None, E_vals=None, dE=0.01):
+def calc_DoS(filename=None, E_vals=None, qx_vals=None, qy_vals=None, patch=None, dE=0.01):
     if filename is not None:
         data = np.load(filename)
-        E_vals = data['E_vals'].flatten()
+        E_vals = data['E_vals']
+    if patch is None:
+        E_vals = E_vals.flatten()
+    else:
+        qxx, qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
+        q = np.column_stack((qxx.ravel(), qyy.ravel()))
+        mask_flat = patch.get_path().contains_points(q)
+        mask = mask_flat.reshape(qxx.shape)
+        E_vals = E_vals[:,mask].flatten()
     E_min, E_max = np.min(E_vals), np.max(E_vals)
     E_edges = np.arange(E_min-dE, E_max + dE, dE)
 
@@ -333,24 +341,6 @@ def calc_DoS(filename=None, E_vals=None, dE=0.01):
 
     # Optional: compute bin centers for plotting
     E_bins = (E_edges[:-1] + E_edges[1:]) / 2
-    # E_bins = np.arange(E_min-dE/2, E_max+3*dE/2, dE)
-
-    # # print(E_min, E_max)
-    # # print(E_bins[:5], E_bins[-5:])
-    # # print(E_bins.shape)
-
-    # # print(E_vals.shape)
-
-    # E = 0
-    # arr = ((E_vals >= (E - dE/2))
-    #                        & (E_vals < (E + dE/2)))
-    # # print(arr)
-    # # print(np.sum(arr))
-    # dos = np.array([np.sum((E_vals >= (E - dE/2))
-    #                        & (E_vals < (E + dE/2)))/dE for E in E_bins])
-    # dos /= dE
-    
-    # print(dos.shape)
     return dos, E_bins
 
 

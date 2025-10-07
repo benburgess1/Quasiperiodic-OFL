@@ -182,6 +182,37 @@ def plot_BS_surface(filename, E_R=1, bands=None, plot_title=True,
     plt.show()
 
 
+def compare_DoS(filenames, colors=None, linestyles=None, legend_params={}, 
+                plot_legend=True, plot_title=True, title_params={}):
+    if colors is None:
+        colors = ['b'] * len(filenames)
+    if linestyles is None:
+        linestyles = ['-'] * len(filenames)
+    fig, ax = plt.subplots()
+    for i,f in enumerate(filenames):
+        data = np.load(f)
+        dos = data['dos_vals']
+        E_bins = data['E_bins']
+        label = ''
+        for k,v in legend_params.items():
+            label += v + ' = ' + str(np.round(data[k],2)) + ', '
+        if len(label) > 2:
+            label = label[:-2]
+        ax.plot(E_bins, dos, color=colors[i], ls=linestyles[i], label=label)
+    ax.set_xlabel(r'$E$ / $E_R$')
+    ax.set_ylabel(r'$\rho(E)$')
+    if plot_legend:
+        ax.legend()
+    if plot_title:
+        title_str = ''
+        for k,v in title_params.items():
+            title_str += v + ' = ' + str(np.round(data[k],2)) + ', '
+        title_str = title_str[:-2]
+        ax.set_title(title_str)
+    ax.set_yticks([0])
+    plt.show()
+
+
 
 if __name__ == '__main__':
     # f = 'Data/BS_approx_a4_GXMG_U0.2_N3_V0.15.npz'
@@ -192,11 +223,26 @@ if __name__ == '__main__':
     # f = 'Approximant/Data/8Fold/Data_R8_a7_c2.5_U0.15_N5_V0.0.npz'
     # f = 'Approximant/Data/5Fold/Irregular/Data_R5_a4_c2.5_U0.2_N3_V0.15_l2_phi1.4.npz'
     # f = 'Approximant/Data/5Fold/AllCoherent/Data_R5_a4_c2.5_U0.2_N3_V0.1_corrected.npz'
-    f = 'Approximant/Data/8Fold/AllCoherent/Data_R8_a3_c2.5_U0.15_N5_V0.04_TEST7.npz'
+    # f = 'Approximant/Data/8Fold/AllCoherent/Data_R8_a3_c2.5_U0.15_N5_V0.04_TEST7.npz'
+    f = 'DarkState/Data/5Fold/Data_R5_a3_c3.5_V10.02_V00.0_p11_p20_phi10_phi20.npz'
+    # f = 'DarkState/Data/5Fold/Data_R5_a3_c5.5_V110.0_V01.0_p11_p20_phi10_phi20.npz'
+    # f = 'DarkState/Data/5Fold/Detailed_Chern_Data_R5_a3_c5.5_V110.0_V01.0_p11_p20_phi10_phi20.npz'
+    filenames = ['DarkState/Data/5Fold/Data_R5_a3_c5.5_V110.0_V00.0_p11_p20_phi10_phi20.npz',
+                 'DarkState/Data/5Fold/Data_R5_a3_c7.5_V110.0_V00.0_p11_p20_phi10_phi20.npz']
+    # f = 'DarkState/Data/5Fold/Detailed_Chern_Data_R5_a3_c3.5_V10.2_V00.0_p11_p20_phi10_phi20.npz'
+    # f = 'DarkState/Data/3Fold/Data_R3_c5.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz'
+    # filenames = ['DarkState/Data/3Fold/Data_R3_c5.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz',
+    #              'DarkState/Data/3Fold/Data_R3_c7.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz',
+    #              'DarkState/Data/3Fold/Data_R3_c9.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz',
+    #              'DarkState/Data/3Fold/Data_R3_c11.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz',
+    #              'DarkState/Data/3Fold/Data_R3_c13.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz']
     # f = 'Data/BS_a2_GXMG_U0.2_N3_V0.2.npz'
-    data = np.load(f)
-    E_vals = data['E_vals']
-    print(np.min(E_vals[14,:,:]) - np.max(E_vals[13,:,:]))
+    # data = np.load(f)
+    # C = data['C']
+    # print('C = ', np.round(np.real(C),2))
+    # print(np.sum(np.real(C)[:13]))
+    # E_vals = data['E_vals']
+    # print(np.min(E_vals[14,:,:]) - np.max(E_vals[13,:,:]))
     # idx = data['max_idx']
     # print(idx)
     # C = np.round(np.real(data['C']),4)
@@ -207,12 +253,16 @@ if __name__ == '__main__':
     # plot_BS_line(f, xticks='GXMG', E_lim=None, bands=None, lw=1)
 
     # # f = 'DoS_approx_a3_U200.0_N3_V150.0_dE0.1.npz'
-    plot_DoS(f, scalefactor=1., xlim=None, calc_new=False, dE=0.01, n_occ=14, plot_E_max=True,
-             chern_in_title=False)
+    plot_BS_surface(f, bands=np.arange(24))
+    # for i in range(1,30):
+    #     print(i)
+    #     plot_DoS(f, scalefactor=1., xlim=None, calc_new=False, dE=0.01, n_occ=i, plot_E_max=True,
+    #         chern_in_title=False)
+    # compare_DoS(filenames, colors=['b','r','c','orange','limegreen'], legend_params={'cutoff':r'$c$'},
+    #             title_params={'V1':r'$|V_1|$', 'V0':r'$|V_0|$'})
     # print(os.getcwd())
     
     # f = 'Data/BS_approx_a3_surface_U200.0_N3_V150.0.npz'
-    # plot_BS_surface(f, bands=np.arange(75, 85))
 
     # f = 'BS_GXGXG_U0.2_N3_V0.1.npz'
     # plot_BS_line(f, x='qx', E_lim=(-0.28, 0.17), bands=None, 

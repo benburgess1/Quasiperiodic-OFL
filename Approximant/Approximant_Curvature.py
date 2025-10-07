@@ -292,69 +292,46 @@ def square_BZ(dq=None, a=3, r0=np.zeros(2), color='k'):
 
 def calc_chern_number(filename=None, bands=None, inside_BZ=False, patch=None, a=3,
                       shift_q=False, truncate_q=False, curv_vals=None, qx_vals=None,
-                      qy_vals=None):
+                      qy_vals=None, sum_bands=True):
     if filename is not None:
         data = np.load(filename)
         qx_vals = data['qx_vals']
         qy_vals = data['qy_vals']
-        if shift_q:
-            dqx = qx_vals[1] - qx_vals[0]
-            qx_vals = (qx_vals + dqx/2)[:-1]
-            dqy = qy_vals[1] - qy_vals[0]
-            qy_vals = (qy_vals + dqy/2)[:-1]
-        elif truncate_q:
-            qx_vals = qx_vals[:-1]
-            qy_vals = qy_vals[:-1]
         curv_vals = data['curv_vals']
     elif curv_vals is None:
         print('Error: must specify curv_vals')
         return
+    if qx_vals is not None and shift_q:
+        dqx = qx_vals[1] - qx_vals[0]
+        qx_vals = (qx_vals + dqx/2)[:-1]
+        dqy = qy_vals[1] - qy_vals[0]
+        qy_vals = (qy_vals + dqy/2)[:-1]
+    elif qx_vals is not None and truncate_q:
+        qx_vals = qx_vals[:-1]
+        qy_vals = qy_vals[:-1]
     if bands is None:
         bands = np.arange(curv_vals.shape[0])
     # dqx = qx[1] - qx[0]
     # dqy = qy[1] - qy[0]
     if inside_BZ:
-        C = 0
         BZ_path = square_BZ(a=0.999*a).get_path()   # Enlarge infinitesimally so no boundary issues
         qxx, qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
-        # print(qxx.shape)
         points = np.column_stack((qxx.ravel(), qyy.ravel()))
         mask = BZ_path.contains_points(points)
-        # curv_plot = np.full_like(curv_vals, 0.)
-        # print(qxx.shape)
-        # print(mask.reshape(qxx.shape))
-        # curv_plot[:, mask.reshape(qxx.shape)] = curv_vals[:, mask.reshape(qxx.shape)]
-        # print(curv_vals.shape)
         curv_vals = curv_vals[:, mask.reshape(qxx.shape)]
-        # print(curv_vals.shape)
         curv_vals = curv_vals.reshape((curv_vals.shape[0], *qxx.shape))
-        # print(curv_vals.shape)
-        
-        # for i in range(qx_vals.size):
-        #     for j in range(qy_vals.size):
-        #         if BZ_path.contains_points(np.array([[qx_vals[i],qy_vals[j]]])):
-        #             C += np.sum(curv_vals[bands,i,j])
-        # C *= dqx * dqy
     elif patch is not None:
-        C = 0
         path = patch.get_path()
         qxx, qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
         points = np.column_stack((qxx.ravel(), qyy.ravel()))
-        mask = path.contains_points(points)
-        # curv_plot = np.full_like(curv_vals, 0.)
-        # curv_plot[:, mask.reshape(qxx.shape)] = curv_vals[:, mask.reshape(qxx.shape)]
-        curv_vals = curv_vals[:, mask.reshape(qxx.shape)]
-        curv_vals = curv_vals.reshape((curv_vals.shape[0], *qxx.shape))
-        # for i in range(qx_vals.size):
-        #     for j in range(qy_vals.size):
-        #         if path.contains_points(np.array([[qx_vals[i],qy_vals[j]]])):
-        #             C += np.sum(curv_vals[bands,i,j])
-        # C *= dqx * dqy
-    C = np.sum(curv_vals[bands,:,:]) # * dqx * dqy
-    # if data['method'] != 'Fukui':
-    #     dqx = qx_vals[1] - qx_vals[0]
-    #     dqy = qy_vals[1] - qy_vals[0]
-    #     C *= dqx * dqy
+        mask_flat = path.contains_points(points)
+        mask = mask_flat.reshape(qxx.shape)
+        curv_vals = curv_vals[:, mask]
+        curv_vals = curv_vals[..., None]
+    if sum_bands:
+        C = np.sum(curv_vals[bands,:,:]) # * dqx * dqy
+    else:
+        C = np.sum(curv_vals[bands,:,:], axis=(1,2))
     return C / (2*np.pi)
 
 
@@ -371,7 +348,7 @@ def K_point_peak_boundary(dq=0.028, color='k'):
 
 
 def calc_curvature_fromfile(filename=None, evects_arr=None, calc_chern=True, save=True, bands=None,
-                            save_filename='auto', gauge_idx=None):
+                            save_filename='auto', gauge_idx=None, sum_bands=True, patch=None, qx_vals=None, qy_vals=None):
     if filename is not None:
         data = np.load(filename)
         evects_arr = data['evects_arr']
@@ -398,7 +375,8 @@ def calc_curvature_fromfile(filename=None, evects_arr=None, calc_chern=True, sav
     
     if calc_chern:
         print('Calculating Chern number...')
-        C = calc_chern_number(curv_vals=curv_vals, bands=bands)  # Assumes that curv_vals exactly tiles the BZ
+        C = calc_chern_number(curv_vals=curv_vals, bands=bands, sum_bands=sum_bands, patch=patch,
+                              qx_vals=qx_vals, qy_vals=qy_vals, shift_q=True) # If no patch, assumes that curvature exactly tiles the BZ
         print('Done')
     
     if save:
@@ -449,10 +427,13 @@ def calc_curv_NonAb_point(n0, n1, n12, n2):
 
 def calc_curvature_NonAb_fromfile(filename=None, evects_arr=None, n_vals=None,
                                   calc_chern=True, save=True,
-                                  save_filename='auto', gauge_idx=None):
+                                  save_filename='auto', gauge_idx=None,
+                                  patch=None, qx_vals=None, qy_vals=None, sum_bands=True):
     if filename is not None:
         data = np.load(filename)
         evects_arr = data['evects_arr']
+        qx_vals = data['qx_vals']
+        qy_vals = data['qy_vals']
     elif evects_arr is None:
         print('Error: eigenvectors not specified')
         return
@@ -476,7 +457,8 @@ def calc_curvature_NonAb_fromfile(filename=None, evects_arr=None, n_vals=None,
     
     if calc_chern:
         print('Calculating Chern number...')
-        C = calc_chern_number(curv_vals=curv_vals, bands=None)  # Assumes that curv_vals exactly tiles the BZ
+        C = calc_chern_number(curv_vals=curv_vals, bands=None, sum_bands=sum_bands, patch=patch,
+                              qx_vals=qx_vals, qy_vals=qy_vals, shift_q=True)  # Assumes that curv_vals exactly tiles the BZ
         print('Done')
     
     if save:

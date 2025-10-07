@@ -6,10 +6,13 @@ import matplotlib.colors as mcolors
 import Approximant_Curvature as AC
 from matplotlib.colors import BoundaryNorm
 from matplotlib.cm import get_cmap
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'DarkState'))
+import Dark_Approximant as DA # type: ignore
 
 
 # Generate colormap to use later when plotting
-bwr = plt.cm.get_cmap('bwr')
+bwr = mpl.colormaps.get_cmap('bwr')
 upper_half_bwr = mcolors.LinearSegmentedColormap.from_list(
     'upper_half_bwr', bwr(np.linspace(0.5, 1, 256)))
 
@@ -119,7 +122,7 @@ def plot_curv_contour(filename, bands=None, plot_title=True,
                       plot_log=False, patch=None, chern=False, inside_BZ=False,
                       scale_factor=1., a=3, axlim=None, shift_q=False,
                       max_idx_dict=max_idx_dict, ax=None, plot_fig=True,
-                      levels=None):
+                      levels=None, bands_in_title=False):
     data = np.load(filename)
     qx_vals = data['qx_vals']
     qy_vals = data['qy_vals']
@@ -130,6 +133,7 @@ def plot_curv_contour(filename, bands=None, plot_title=True,
         qx_vals = (qx_vals + dqx/2)[:-1]
         dqy = qy_vals[1] - qy_vals[0]
         qy_vals = (qy_vals + dqy/2)[:-1]
+        shift_q = False
     qxx,qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
     curv_vals = data['curv_vals'] / scale_factor
     if curv_vals.shape[1:] != qxx.shape:
@@ -198,12 +202,13 @@ def plot_curv_contour(filename, bands=None, plot_title=True,
     ax.set_xlabel(r'$q_x$')
     ax.set_ylabel(r'$q_y$', rotation=0)
     if plot_title:
-        title_str = title_params(filename, bands=bands, max_idx_dict=max_idx_dict, include_bands=False)
+        title_str = title_params(filename, bands=bands, max_idx_dict=max_idx_dict, include_bands=bands_in_title)
         if chern:
             # print(curv_vals.shape)
             C = AC.calc_chern_number(curv_vals=curv_vals, qx_vals=qx_vals, 
-                                     qy_vals=qy_vals, bands=bands, 
-                                     inside_BZ=inside_BZ, a=a, shift_q=shift_q)
+                                     qy_vals=qy_vals, bands=bands, sum_bands=True,
+                                     inside_BZ=inside_BZ, a=a, shift_q=shift_q, 
+                                     patch=patch)
             C_str = str(np.round(np.real(C), 5))
             title_str += ', ' + r'$C = $' + C_str
         ax.set_title(title_str)
@@ -229,7 +234,8 @@ def plot_curv_contour(filename, bands=None, plot_title=True,
 def title_params(filename, include_bands=True, bands=None, max_idx_dict=max_idx_dict):
     data = np.load(filename)
     title_str = ''
-    params = {'U0':r'$|U|$', 'V0':r'$|V|$', 'N':r'$N$', 'R':r'$R$'}
+    params = {'R':r'$R$', 'U0':r'$|U|$', 'V1':r'$|V_1|$', 'V0':r'$|V_0|$', 'N':r'$N$', 'p1':r'$p_1$', 'p2':r'$p_2$',
+              'phi1':r'$\phi_1$', 'phi2':r'$\phi_2$'}
     for key, val in params.items():
         if key in data:
             title_str += val + r'$ = $' + str(np.round(data[key],4)) + ', '
@@ -300,7 +306,9 @@ if __name__ == '__main__':
     # f = 'Approximant/Data/5Fold/Irregular/Data_R5_a4_c2.5_U0.2_N3_V0.15_l2_phi1.4.npz'
     # f = 'Approximant/Data/5Fold/AllCoherent/Data_R5_a4_c2.5_U0.2_N3_V0.24_corrected.npz'
     # f = 'Approximant/Data/8Fold/AllCoherent/Data_R8_a3_c2.5_U0.15_N5_V0.0353_TEST6.npz'
-    f = 'Approximant/Data/8Fold/Data_R8_a3_c2.5_U0.15_N5_V0.0354_TEST.npz'
+    # f = 'Approximant/Data/8Fold/Data_R8_a3_c2.5_U0.15_N5_V0.0354_TEST.npz'
+    f = 'DarkState/Data/5Fold/Data_R5_a3_c5.5_V110.0_V01.0_p11_p20_phi10_phi20.npz'
+    # f = 'DarkState/Data/3Fold/Data_R3_c5.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz'
     # data = np.load(f)
     # print(data['max_idx'])
     # curv_vals = data['curv_vals']
@@ -316,8 +324,8 @@ if __name__ == '__main__':
     # curv = data['curv_vals']
     # print(curv.shape)
 
-
-    plot_curv_contour(f, bands=None, 
+    # hex_BZ = DA.hex_BZ_patch(a=0.5001)
+    plot_curv_contour(f, bands=None, plot_BZ=False, bands_in_title=False,
                     plot_abs=False, plot_log=False, patch=None, chern=True,
                     inside_BZ=False, scale_factor=-1., shift_q=True, a=3)
     # for i in range(16):

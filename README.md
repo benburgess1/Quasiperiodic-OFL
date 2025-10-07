@@ -30,3 +30,10 @@ This folder contains code used in analysing the quasiperiodic system directly. (
 - QBZ_Bandstructure.py: code for calculating and plotting the bandstructure and Berry curvature over the 'quasi-Brillouin zone' (QBZ) (valid in the weak-coupling limit) using a minimal basis of plane-waves required at first-order in the coupling strength.
 - Symmetries.py: code for investigating the symmetry properties of the system in the weak-coupling limit. Representations of different symmetry operators are constructed in the minimal basis of states needed to span the QBZ, and their commutation relations with each other and different terms in the Hamiltonian are calculated.
 - B_eff.py: code for calculating, plotting and analysing the effective magnetic field B_eff for a particle adiabatically following the low-energy spinor of the system.
+
+### DarkState
+This folder contains code used for analysing an alternative 'dark state' Hamiltonian, which is predicted to possess an exactly flat band in the adiabatic limit of infinite potential.
+- Calc_Curvature.py: code for calculating the real-space Berry curvature (effecetive magnetic field) of the two-level system in the adiabatic limit.
+- Plot_Curvature.py: code for plotting the real-space effective magnetic field.
+- Dark_Approximant.py: code for calculating bandstructures, DoS, etc. using the same approximant techniques as previously. The main difference is in how the Fourier components of the Hamiltonian are constructed.
+- Generate_Data.py: script for performing a full analysis of a quasiperiodic system with specified parameters, for a given approximant, basis set, etc.
