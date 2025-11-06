@@ -87,13 +87,13 @@ def add_square_grid(ax, a, L=4, color='r', ms=2, zorder=1):
     ax.plot(xx, yy, color=color, marker='o', ls='', ms=ms, zorder=zorder)
 
 
-def add_hex_grid(ax, a, L=4, color='r'):
+def add_hex_grid(ax, a, L=4, color='r', ms=2):
     k1 = np.array([1/a, 0])
     k2 = (1/a) * np.array([0.5, np.sqrt(3)/2])
     for i in range(-L,L+1):
         for j in range(-L,L+1):
             r = i*k1 + j*k2
-            ax.plot(r[0], r[1], marker='o', ls='', color=color)
+            ax.plot(r[0], r[1], marker='o', ls='', color=color, ms=ms)
 
 
 def add_g_vectors(ax, G_vects, color='limegreen', width=1, headwidth=5, headlength=8,
@@ -224,36 +224,37 @@ if __name__ == '__main__':
     # G_vects_exact = np.column_stack((np.cos(2*np.pi*l/8),
     #                                 np.sin(2*np.pi*l/8)))
     # N_bands = np.array([2,4,14,28,46,56,82,112,126,164])
-    # plot_density(plot_midpoints=True, a_midpoints=np.arange(1,21), N_bands=N_bands, R=8, a=np.arange(1,11))
+    N_bands = np.array([26, 44, 78, 100])
+    plot_density(plot_midpoints=True, a_midpoints=np.arange(3,15), N_bands=N_bands, R=5, a=np.arange(3,7))
     # G1 = np.array([3,-1])
     # G2 = np.array([1,-3])
     # m = calc_midpoint(G1, G2)
     # print(m)
     # plot_errors(a_vals=np.arange(3,21), R=8)
-    fig,ax = plt.subplots()
-    a = 19
-    l = np.arange(8)
-    G_vects_exact = np.column_stack((np.cos(2*np.pi*l/8),
-                                    np.sin(2*np.pi*l/8)))
-    G_vects_approx = square_approximant(a=a, G_vects=G_vects_exact)
-    ax.set_aspect('equal')
-    ax.set_xticks([])
-    ax.set_yticks([])
-    add_square_grid(ax, a=a, L=10)
-    plot_BZ(ax, a=a)
-    plot_vectors(G_vects_exact, ax, color='k')
-    plot_vectors(G_vects_approx, ax, color='r')
-    plot_vectors(G_vects_approx, ax, color='c')
-    lim = 1.2
-    ax.set_xlim(-lim,lim)
-    ax.set_ylim(-lim,lim)
-    ax.set_title(f'a = {a}')
-    # # # # # # add_hex_grid(ax, a=a, L=10)
+    # fig,ax = plt.subplots()
+    # a = 19
+    # l = np.arange(8)
+    # G_vects_exact = np.column_stack((np.cos(2*np.pi*l/8),
+    #                                 np.sin(2*np.pi*l/8)))
+    # G_vects_approx = square_approximant(a=a, G_vects=G_vects_exact)
+    # ax.set_aspect('equal')
+    # ax.set_xticks([])
+    # ax.set_yticks([])
+    # add_square_grid(ax, a=a, L=10)
+    # plot_BZ(ax, a=a)
+    # plot_vectors(G_vects_exact, ax, color='k')
+    # plot_vectors(G_vects_approx, ax, color='r')
+    # plot_vectors(G_vects_approx, ax, color='c')
+    # lim = 1.2
+    # ax.set_xlim(-lim,lim)
+    # ax.set_ylim(-lim,lim)
+    # ax.set_title(f'a = {a}')
+    # # # # # # # add_hex_grid(ax, a=a, L=10)
     
-    add_g_vectors(ax, G_vects=G_vects_approx)
-    add_midpoints(ax, G_vects=G_vects_approx)
-    # # # # # add_cutoff_radius(ax, c=3)
-    plt.show()
+    # add_g_vectors(ax, G_vects=G_vects_approx)
+    # add_midpoints(ax, G_vects=G_vects_approx)
+    # # # # # # add_cutoff_radius(ax, c=3)
+    # plt.show()
 
     # print('G-vectors (units 1/a):')
     # G_vects_approx = a*square_approximant(a=a)

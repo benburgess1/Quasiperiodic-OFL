@@ -4,7 +4,7 @@ import Approximant_Vectors as AV
 import Approximant_Curvature as AC
 
 ### ---- System Parameters ---- ###
-N = 5
+N = 2
 phi0 = 0.
 a = 3
 R = 8
@@ -18,8 +18,8 @@ g_vects = np.roll(G_vects, -1, axis=0) - G_vects
 # g3 = np.roll(G_vects, -3, axis=0) - G_vects
 # g_vects = np.row_stack((g1, g2, g3))
 
-U_vals = np.array([0.3])
-V_vals = np.array([0.24])
+U_vals = np.array([0.1])
+V_vals = np.array([0.05])
 # data = np.load('Req_5Fold.npz')
 # U_vals = data['P_req'][:,0]
 # V_vals = data['P_req'][:,1]
@@ -54,7 +54,7 @@ basis = ABS.calc_square_basis_states(a=a, cutoff=cutoff)
 dE = 0.001
 sparse = True
 num_evals = 30
-N_q = 201
+N_q = 31
 gauge_idx = 0
 calc_idx = False
 use_dict_idx = False

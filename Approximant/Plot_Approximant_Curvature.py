@@ -307,8 +307,9 @@ if __name__ == '__main__':
     # f = 'Approximant/Data/5Fold/AllCoherent/Data_R5_a4_c2.5_U0.2_N3_V0.24_corrected.npz'
     # f = 'Approximant/Data/8Fold/AllCoherent/Data_R8_a3_c2.5_U0.15_N5_V0.0353_TEST6.npz'
     # f = 'Approximant/Data/8Fold/Data_R8_a3_c2.5_U0.15_N5_V0.0354_TEST.npz'
-    f = 'DarkState/Data/5Fold/Data_R5_a3_c5.5_V110.0_V01.0_p11_p20_phi10_phi20.npz'
+    # f = 'DarkState/Data/6Fold/Data_R6_c5.5_V110.0_V00.0_p11_p20_phi10_phi20.npz'
     # f = 'DarkState/Data/3Fold/Data_R3_c5.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz'
+    f = 'Approximant/Data/8Fold/Old_Data/Data_R8_a3_c2.5_U0.1_N2_V0.05_fine.npz'
     # data = np.load(f)
     # print(data['max_idx'])
     # curv_vals = data['curv_vals']
@@ -324,10 +325,10 @@ if __name__ == '__main__':
     # curv = data['curv_vals']
     # print(curv.shape)
 
-    # hex_BZ = DA.hex_BZ_patch(a=0.5001)
+    hex_BZ = DA.hex_BZ_patch(a=0.5001)
     plot_curv_contour(f, bands=None, plot_BZ=False, bands_in_title=False,
                     plot_abs=False, plot_log=False, patch=None, chern=True,
-                    inside_BZ=False, scale_factor=-1., shift_q=True, a=3)
+                    inside_BZ=False, scale_factor=-1., shift_q=True, a=1)
     # for i in range(16):
     #     plot_curv_contour(f, bands=[i], 
     #                   plot_abs=False, plot_log=False, patch=None, chern=True,
