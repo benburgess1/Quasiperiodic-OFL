@@ -8,13 +8,12 @@ import Approximant_Vectors as AV
 import Approximant_Curvature as AC
 
 ### ---- System Parameters ---- ###
-a = 4
+a = 3
 R = 5
 l = np.arange(R)
 G_vects_exact = np.column_stack((np.cos(2*np.pi*l/R),
                                 np.sin(2*np.pi*l/R)))
 G_vects = AV.square_approximant(a=a, G_vects=G_vects_exact)
-
 V1_vals = np.array([10.0])
 V0_vals = np.array([0.])
 p1 = 1
@@ -34,8 +33,10 @@ num_evals = 30
 N_q = 31
 gauge_idx = 0
 calc_idx = True
-E_min = 1.
-E_max = 2.
+E_min = 0.5
+E_max = 2.5
+compensate_V = True
+compensate_filename = 'Data/B_eff/dV_extended_R5_a3_M4000_p11_p20_phi10_phi20.npz'
 ### -------------------------- ###
 
 
@@ -44,14 +45,15 @@ for i in range(len(V1_vals)):
     V0 = V0_vals[i]
 
     print(f'Evaluating parameter set {i+1} out of {len(V1_vals)}:')
-    print(f'V1 = {V1}, V0 = {V0}, p1 = {p1}, p2 = {p2}, phi1 = {phi1}, phi2 = {phi2}, a = {a}, cutoff = {cutoff}')
+    print(f'R = {R}, V1 = {V1}, V0 = {V0}, p1 = {p1}, p2 = {p2}, phi1 = {phi1}, phi2 = {phi2}, a = {a}, cutoff = {cutoff}')
     print(f'Basis Size: {basis[0].shape[0]} x 2')
     print('Performing diagonalization:')
     qx_vals = np.linspace(-0.5/a, 0.5/a, N_q)
     qy_vals = np.copy(qx_vals)
     E_vals, evects_arr = DA.calc_BS_surface(qx=qx_vals, qy=qy_vals, basis=basis, G_vects=G_vects, R=R,
                                             V1=V1, V0=V0, phi_up=phi_up, phi_down=phi_down, 
-                                            sparse=sparse, num_evals=num_evals, return_evects=True)
+                                            sparse=sparse, num_evals=num_evals, return_evects=True,
+                                            compensate_V=compensate_V, filename=compensate_filename)
     
     print('Calculating density of states...')
     dos_vals, E_bins = ABS.calc_DoS(E_vals=E_vals, dE=dE)
@@ -65,7 +67,7 @@ for i in range(len(V1_vals)):
                                               gauge_idx=gauge_idx)
 
     # file_str = 'DarkState/Data/5Fold/Data_'
-    file_str = 'Data/5Fold/Data_'
+    file_str = 'Data/5Fold/Updated/Data_'
     file_str += ('R' + str(int(R)) + '_a' + str(int(a)) + '_c' + str(np.round(cutoff,1)) + '_V1' + str(np.round(V1,4)) +  
                  '_V0' + str(np.round(V0,4)) + '_p1' + str(np.round(p1,4)) + '_p2' + str(np.round(p2,4)) + 
                  '_phi1' + str(np.round(phi1,4)) + '_phi2' + str(np.round(phi2,4)) + '.npz')
@@ -73,6 +75,7 @@ for i in range(len(V1_vals)):
              E_vals=E_vals, dos_vals=dos_vals, E_bins=E_bins, dE=dE,
              curv_vals=curv_vals, C=C, gauge_idx=gauge_idx, max_idx=max_idx,
              V1=V1, V0=V0, p1=p1, p2=p2, phi1=phi1, phi2=phi2, R=R,
-             basis=basis, a=a, cutoff=cutoff)
+             basis=basis, a=a, cutoff=cutoff, 
+             compensate_V=compensate_V, compensate_filename=compensate_filename)
 
 

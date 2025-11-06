@@ -82,9 +82,13 @@ def calc_V0(G_vects, V0=1.):
     return g[1:,:], V[1:]
 
 
+
+
+
 def calc_H(q, basis=AB.calc_square_basis_states(a=3, cutoff=2.5), V1=1, V0=0., 
            G_vects=AV.square_approximant(a=3), phi_up=None, phi_down=None,
            R=5, p1=1, p2=0, phi1=0., phi2=0., return_V_const=True, 
+           compensate_V=False, filename='', 
            **kwargs):
     (b_up, b_down) = basis
     N_q = b_down.shape[0]
@@ -107,18 +111,18 @@ def calc_H(q, basis=AB.calc_square_basis_states(a=3, cutoff=2.5), V1=1, V0=0.,
             # Up-to-up couplings
             dq = b_up[i] - b_up[j]
             idxs = np.where(np.isclose(g_uu, dq, atol=0.001).all(axis=1))[0]
-            if idxs.size > 1:
-                # print(f'Warning: duplicate at g_uu = {g_uu[idxs[0]]}')
-                pass
+            # if idxs.size > 1:
+            #     print(f'Warning: duplicate at g_uu = {g_uu[idxs[0]]}')
+            #     pass
             for l in idxs:
                 H[j,i] += V_uu[l]
                 H[i,j] += np.conj(V_uu[l])
             # Down-to-down couplings
             dq = b_down[i] - b_down[j]
             idxs = np.where(np.isclose(g_dd, dq, atol=0.001).all(axis=1))[0]
-            if idxs.size > 1:
-                # print(f'Warning: duplicate at g_dd = {g_dd[idxs[0]]}')
-                pass
+            # if idxs.size > 1:
+            #     print(f'Warning: duplicate at g_dd = {g_dd[idxs[0]]}, num = {idxs.size}')
+            #     pass
             for l in idxs:
                 H[j+N_q,i+N_q] += V_dd[l]
                 H[i+N_q,j+N_q] += np.conj(V_dd[l])
@@ -132,9 +136,9 @@ def calc_H(q, basis=AB.calc_square_basis_states(a=3, cutoff=2.5), V1=1, V0=0.,
         for j in range(N_q):
             dq = b_down[i] - b_up[j]
             idxs = np.where(np.isclose(g_ud, dq, atol=0.001).all(axis=1))[0]
-            if idxs.size > 1:
-                # print(f'Warning: duplicate at g_ud = {g_ud[idxs[0]]}')
-                pass
+            # if idxs.size > 1:
+            #     print(f'Warning: duplicate at g_ud = {g_ud[idxs[0]]}, num = {idxs.size}')
+            #     pass
             for l in idxs:
                 H[j,i+N_q] += V_ud[l]
                 H[i+N_q,j] += np.conj(V_ud[l])
@@ -142,12 +146,28 @@ def calc_H(q, basis=AB.calc_square_basis_states(a=3, cutoff=2.5), V1=1, V0=0.,
         for j in range(N_q):
             dq = b_down[i] - b_up[j]
             idxs = np.where(np.isclose(g_scalar, dq, atol=0.001).all(axis=1))[0]
-            if idxs.size > 1:
-                # print(f'Warning: duplicate at g_ud = {g_ud[idxs[0]]}')
-                pass
+            # if idxs.size > 1:
+            #     # print(f'Warning: duplicate at g_ud = {g_ud[idxs[0]]}')
+            #     pass
             for l in idxs:
                 H[j,i] += V_scalar[l]
                 H[j+N_q,i+N_q] += V_scalar[l]
+        # Approximant compensation
+        if compensate_V:
+            data = np.load(filename)
+            dV = data['dV_FT_list']
+            k = data['k_list']
+            for j in range(N_q):
+                dq = b_down[i] - b_up[j]
+                idxs = np.where(np.isclose(k, dq, atol=0.001).all(axis=1))[0]
+                # if idxs.size > 1:
+                #     # print(f'Warning: duplicate at g_ud = {g_ud[idxs[0]]}')
+                #     pass
+                for l in idxs:
+                    H[j,i] += -dV[l]
+                    H[j+N_q,i+N_q] += -dV[l]
+
+
     if return_V_const:
         return H, V_const_up, V_const_down
     else:
@@ -281,7 +301,7 @@ def approximant_errors(a_vals=np.arange(1,10), R=5):
 
 
 if __name__ == '__main__':
-    approximant_errors(a_vals=np.arange(3,11), R=5)
+    # approximant_errors(a_vals=np.arange(3,11), R=5)
     # fig,ax = plt.subplots()
     # q, hex_path = q_inside_hex(N_q=20, a=0.5)
     # q_all = calc_tri_basis_states(c=10)
@@ -295,23 +315,31 @@ if __name__ == '__main__':
     # ax.set_ylim(-lim, lim)
     # ax.set_aspect('equal')
     # plt.show()
-    # R = 3
-    # l = np.arange(3)
-    # a = 3
-    # G_exact = np.column_stack((np.cos(2*np.pi*l/R), np.sin(2*np.pi*l/R)))
+    R = 5
+    l = np.arange(R)
+    a = 3
+    cutoff = 5.5
+    G_exact = np.column_stack((np.cos(2*np.pi*l/R), np.sin(2*np.pi*l/R)))
+    G_vects = AV.square_approximant(a=a, G_vects=G_exact)
+    basis = AB.calc_square_basis_states(a=a, cutoff=cutoff)
+
+    # calc_dU(U_vals=1, kx_vals=1, ky_vals=1, a=a, cutoff=cutoff)
+    # q=np.random.rand(2)
+    # H, V_const_up, V_const_down = calc_H(q=q, basis=basis, V1=10., V0=0., G_vects=G_vects)
     # G_approx = AV.square_approximant(a=a, G_vects=G_exact)
     # basis = calc_tri_basis_states(c=3.5)
     # fig,ax = plt.subplots()
     # ax.set_aspect('equal')
     # ax.set_xticks([])
     # ax.set_yticks([])
-    # # AV.add_square_grid(ax, a=a, L=10, color='k')
+    # AV.add_square_grid(ax, a=a, L=10, color='k')
+    # AV.add_hex_grid(ax, a=a, L=10, color='k')
     # ax.plot(basis[:,0], basis[:,1], marker='o', ls='', color='k', ms=5)
     # # AV.plot_BZ(ax, a=a)
-    # AV.plot_vectors(G_exact, ax, color='k')
+    # AV.plot_vectos(G_exact, ax, color='k')
     # # AV.plot_vectors(G_approx, ax, color='r')
     # # g_vects = calc_g_vects(G_approx)
-    # g_uu, g_ud, g_du, g_dd, V_uu, V_ud, V_du, V_dd = calc_V1(G_exact, phi_up=np.zeros(5), phi_down=np.zeros(5), V1=1.)
+    # g_uu, g_ud, g_du, g_dd, V_uu, V_ud, V_du, V_dd = calc_V1(G_exact, phi_up=np.zeros(R), phi_down=np.zeros(R), V1=1.)
     # g_scalar, V_scalar = calc_V0(G_exact, V0=1)
     # # print(g_uu)
     # # print(g_uu.shape)
@@ -324,10 +352,10 @@ if __name__ == '__main__':
     # AV.plot_vectors(g_scalar, ax, color='r')
     # AV.plot_vectors(g_uu.reshape((-1,2)), ax, color='limegreen')
     # AV.plot_vectors(g_du.reshape((-1,2)), ax, color='cyan')
-    # lim = 5
+    # lim = 2.6
     # ax.set_xlim(-lim,lim)
     # ax.set_ylim(-lim,lim)
-    # ax.set_title(f'a = {a}')
+    # ax.set_title(f'R = {R}')
     # plt.show()
 
 
