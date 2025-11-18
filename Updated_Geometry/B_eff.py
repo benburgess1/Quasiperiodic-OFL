@@ -489,12 +489,12 @@ if __name__ == '__main__':
 
     a_vals = np.arange(1,11)
     dx_vals = dx * np.ones(a_vals.size)
-    f = f'Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
-    # f = f'Updated_Geometry/Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+    # f = f'Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+    f = f'Updated_Geometry/Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = 'Updated_Geometry/Data/Phi_R8_a1-10_dx0.01_U0.1_N5_V0.05.npz'
-    calc_phi_vs_a(a_vals=a_vals, dx_vals=dx_vals, U0=U_mag, N=N, V0=V_mag, R=R,
-                  filename=f)
-    # plot_phi_vs_a(f, average_uc=True)
+    # calc_phi_vs_a(a_vals=a_vals, dx_vals=dx_vals, U0=U_mag, N=N, V0=V_mag, R=R,
+    #               filename=f)
+    plot_phi_vs_a(f, average_uc=True)
 
 
     # x = np.arange(30,32, dtype=np.float64)
