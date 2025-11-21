@@ -26,7 +26,7 @@ w = np.exp(1j*dphi)
 G = np.column_stack((np.cos(2*np.pi*l/8), np.sin(2*np.pi*l/8)))
 
 
-def calc_H(q, U=np.ones(8), G=G, V=0., Dx=0., Dy=0., Dz=0.):
+def calc_H(q, U=np.ones(8), G=G, V=0., Dx=0., Dy=0., Dz=0., W=0.):
     H = np.zeros((16, 16), dtype=np.complex128)
     # U couplings:
     for i in range(8):
@@ -42,6 +42,16 @@ def calc_H(q, U=np.ones(8), G=G, V=0., Dx=0., Dy=0., Dz=0.):
         # orb[i, (i+2)%8] += V
     dHV = np.kron(orb, sz)
     H += (dHV + dHV.conj().T)
+    # W couplings:
+    orb = np.zeros((8,8), dtype=np.complex128)
+    # for i in range(4):
+    #     orb[(i+2)%8, i] += 2*W*1j
+    #     orb[(i+6)%8, i+4] += -2*W*1j
+    for i in range(3,7):
+        orb[(i+2)%8, i] += 2*W*1j
+        orb[(i+6)%8, (i+4)%8] += -2*W*1j
+    dHW = np.kron(orb, I2)
+    H += (dHW + dHW.conj().T)
     # D couplings:
     H += Dx * np.kron(np.eye(8), sx)
     H += Dy * np.kron(np.eye(8), sy)
@@ -142,7 +152,7 @@ def calc_curv(evects, fix_gauge=True, n_bands=np.arange(16), NonAb=False, **kwar
 
 
 def plot_evals_surf(evals, qx_vals, qy_vals, U_mag=0.15, V_mag=0.01, n_bands=np.arange(16), 
-                    Dx=0., Dy=0., Dz=0.):
+                    Dx=0., Dy=0., Dz=0., W=0.):
     qxx,qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
     fig,ax = plt.subplots(subplot_kw={'projection':'3d'})
     for n in n_bands:
@@ -151,13 +161,15 @@ def plot_evals_surf(evals, qx_vals, qy_vals, U_mag=0.15, V_mag=0.01, n_bands=np.
     ax.set_ylabel(r'$q_y$')
     ax.zaxis.set_rotate_label(False)
     ax.set_zlabel(r'$E$ / $E_{R}$', rotation=0, labelpad=10)
-    ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz},')
+    ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, W = {W}')
     plt.show()
 
 
 def plot_curv(curv_vals, qx_vals, qy_vals, shift_q=True, U_mag=0.15, V_mag=0.01, 
               n_bands=np.arange(16), bands_in_title=True, chern_in_title=True,
-              NonAb=True, N=N, Dx=0., Dy=0., Dz=0.):
+              NonAb=True, N=N, Dx=0., Dy=0., Dz=0., W=0.,
+              title_params={'R':r'$R$', 'U0':r'$U$', 'V0':r'$V$', 'N':r'$N$'},
+              dp=3):
     if shift_q:
         dqx = qx_vals[1] - qx_vals[0]
         qx_vals = (qx_vals + dqx/2)[:-1]
@@ -176,7 +188,11 @@ def plot_curv(curv_vals, qx_vals, qy_vals, shift_q=True, U_mag=0.15, V_mag=0.01,
     plot = ax.contourf(qxx, qyy, curv_plot, cmap=cmap, levels=levels)
     ax.set_xlabel(r'$q_x$')
     ax.set_ylabel(r'$q_y$', rotation=0)
-    title_str = f'U = {U_mag}, V = {V_mag}, N = {N}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}'
+    title_str = ''
+    for k,v in title_params.items():
+        title_str += ', ' + k + r'$=$' + str(np.round(v, dp))
+    # title_str = f'U = {U_mag}, V = {V_mag}, N = {N}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, W = {W}'
+    title_str = title_str[2:]
     if bands_in_title:
         if len(n_bands) <= 2:
             band_tit = f'Bands = {n_bands}'
@@ -185,7 +201,7 @@ def plot_curv(curv_vals, qx_vals, qy_vals, shift_q=True, U_mag=0.15, V_mag=0.01,
         title_str += ', ' + band_tit
     if chern_in_title:
         C = np.sum(curv_plot) / (2*np.pi)
-        C_str = str(np.round(np.real(C), 5))
+        C_str = str(np.round(np.real(C), dp))
         title_str += ', ' + r'$C = $' + C_str
     ax.set_title(title_str)
     cbar = fig.colorbar(plot, ticks=ticks)
@@ -218,7 +234,7 @@ def calc_BS_path(q_vals, **kwargs):
     return evals
 
 
-def plot_BS_GMKG(evals, U_mag=None, V_mag=0., alternating=True, N=5, Dx=0., Dy=0., Dz=0.):
+def plot_BS_GMKG(evals, U_mag=None, V_mag=0., alternating=True, N=5, Dx=0., Dy=0., Dz=0., W=0.):
     fig,ax = plt.subplots()
     x = np.arange(298)
     for i in range(16):
@@ -230,12 +246,12 @@ def plot_BS_GMKG(evals, U_mag=None, V_mag=0., alternating=True, N=5, Dx=0., Dy=0
     ax.set_xticklabels([r'$\Gamma$', r'$M$', r'$K$', r'$\Gamma$'])
     ax.set_ylabel(r'$E/E_R$')
     if U_mag is not None:
-        ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, N = {N}')
+        ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, N = {N}, W = {W}')
     plt.show()
 
 
 def plot_BS_path(evals, q_vals, x='qx', U_mag=None, V_mag=0., alternating=True, N=5, Dx=0.,
-                 Dy=0., Dz=0., Elim=None):
+                 Dy=0., Dz=0., Elim=None, W=0.):
     fig,ax = plt.subplots()
     if x == 'qx':
         x_vals = q_vals[:,0]
@@ -256,7 +272,7 @@ def plot_BS_path(evals, q_vals, x='qx', U_mag=None, V_mag=0., alternating=True, 
     ax.set_xlabel(xlab)
     ax.set_ylabel(r'$E/E_R$')
     if U_mag is not None:
-        ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, N = {N}')
+        ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, N = {N}, W = {W}')
     if Elim is not None:
         ax.set_ylim(*Elim)
     plt.show()
@@ -434,36 +450,45 @@ if __name__ == '__main__':
 
 
     ### Constants, parameters etc.
-    U_mag = 0.01
+    U_mag = 0.05
     l = np.arange(8)
     phi0 = 0
     N = 5
     U = -U_mag * np.exp(1j * (phi0 - 2 * np.pi * N * l / 8))
     V_mag = 0.0
-    Dx = 0.00
+    Dx = 0.0
     Dy = 0.0
-    Dz = 0.000
+    Dz = 0.0
+    W = 0.001
 
-    q_vals = calc_q_GMKG()
-    evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
-    plot_BS_GMKG(evals=evals, U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz)
+    # q_vals = calc_q_GMKG()
+    # evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    # plot_BS_GMKG(evals=evals, U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
 
-    # q_K = np.array([0.5, 0.5*np.tan(np.pi/8)])
+    q_K = np.array([0.5, 0.5*np.tan(np.pi/8)])
     # dq = np.column_stack((np.linspace(-0.01, 0.01, 1000), np.zeros(1000)))
-    # # dq = np.column_stack((np.zeros(1000), np.linspace(-0.01, 0.01, 1000)))
-    # q_vals = q_K + dq
-    # evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
-    # plot_BS_path(evals=evals, q_vals=q_vals, x='qx', U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz,
-    #              Elim=(0.245, 0.265))
+    # dq = np.column_stack((np.zeros(1000), np.linspace(-0.01, 0.01, 1000)))
+    dq = np.column_stack((np.linspace(-0.01, 0.01, 1000), np.linspace(-0.01, 0.01, 1000)))
+    q_vals = q_K + dq
+    # e = q_K / np.linalg.norm(q_K)
+    # q_vals = np.column_stack((e[0] * np.linspace(-0.01, 0.01, 1000), e[1] * np.linspace(-0.01, 0.01, 1000))) + q_K
+    evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    plot_BS_path(evals=evals, q_vals=q_vals, x='qx', U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
+                 Elim=(0.24,0.27))
 
-    # dq = 0.025*np.linspace(-1,1,50)
-    # qx_vals = dq + 0.5
-    # qy_vals = dq + 0.5*np.tan(np.pi/8)
+    dq = 0.01*np.linspace(-1,1,50)
+    qx_vals = dq + 0.5
+    qy_vals = dq + 0.5*np.tan(np.pi/8)
 
-    # evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
-    # # plot_evals_surf(evals, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
-    # n_bands = np.arange(6)
-    # curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
-    # plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz)
+    # qx_vals = np.linspace(0.5032, 0.5036, 200)
+    # qy_vals = np.linspace(0.2081, 0.2085, 200)
+
+    evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    # plot_evals_surf(evals, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
+    n_bands = np.arange(6)
+    curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
+    plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
+              title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W},
+              bands_in_title=False, dp=5)
     
 
