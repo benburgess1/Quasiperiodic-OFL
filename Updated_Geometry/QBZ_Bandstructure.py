@@ -151,8 +151,10 @@ def calc_curv(evects, fix_gauge=True, n_bands=np.arange(16), NonAb=False, **kwar
     return curv_vals
 
 
-def plot_evals_surf(evals, qx_vals, qy_vals, U_mag=0.15, V_mag=0.01, n_bands=np.arange(16), 
-                    Dx=0., Dy=0., Dz=0., W=0.):
+def plot_evals_surf(evals, qx_vals, qy_vals, n_bands=None, 
+                    title_params={}, dp=5):
+    if n_bands is None:
+        n_bands = np.arange(evals.shape[0])
     qxx,qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
     fig,ax = plt.subplots(subplot_kw={'projection':'3d'})
     for n in n_bands:
@@ -161,15 +163,23 @@ def plot_evals_surf(evals, qx_vals, qy_vals, U_mag=0.15, V_mag=0.01, n_bands=np.
     ax.set_ylabel(r'$q_y$')
     ax.zaxis.set_rotate_label(False)
     ax.set_zlabel(r'$E$ / $E_{R}$', rotation=0, labelpad=10)
-    ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, W = {W}')
+    # ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, W = {W}')
+    title_str = ''
+    for k,v in title_params.items():
+        title_str += ', ' + k + r'$=$' + str(np.round(v, dp))
+    # title_str = f'U = {U_mag}, V = {V_mag}, N = {N}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, W = {W}'
+    title_str = title_str[2:]
+    ax.set_title(title_str)
     plt.show()
 
 
 def plot_curv(curv_vals, qx_vals, qy_vals, shift_q=True, U_mag=0.15, V_mag=0.01, 
-              n_bands=np.arange(16), bands_in_title=True, chern_in_title=True,
+              n_bands=None, bands_in_title=True, chern_in_title=True,
               NonAb=True, N=N, Dx=0., Dy=0., Dz=0., W=0.,
               title_params={'R':r'$R$', 'U0':r'$U$', 'V0':r'$V$', 'N':r'$N$'},
               dp=3):
+    if n_bands is None:
+        n_bands = np.arange(curv_vals.shape[0])
     if shift_q:
         dqx = qx_vals[1] - qx_vals[0]
         qx_vals = (qx_vals + dqx/2)[:-1]
@@ -250,8 +260,8 @@ def plot_BS_GMKG(evals, U_mag=None, V_mag=0., alternating=True, N=5, Dx=0., Dy=0
     plt.show()
 
 
-def plot_BS_path(evals, q_vals, x='qx', U_mag=None, V_mag=0., alternating=True, N=5, Dx=0.,
-                 Dy=0., Dz=0., Elim=None, W=0.):
+def plot_BS_path(evals, q_vals, x='qx', alternating=True, 
+                 Elim=None, title_params={}, dp=5):
     fig,ax = plt.subplots()
     if x == 'qx':
         x_vals = q_vals[:,0]
@@ -262,7 +272,7 @@ def plot_BS_path(evals, q_vals, x='qx', U_mag=None, V_mag=0., alternating=True, 
     else:
         x_vals = np.arange(q_vals.shape[0])
         xlab = 'N'
-    for i in range(16):
+    for i in range(evals.shape[1]):
         if alternating:
             styles = ['-', ':']
             colours = ['k', 'r']
@@ -271,8 +281,14 @@ def plot_BS_path(evals, q_vals, x='qx', U_mag=None, V_mag=0., alternating=True, 
     # ax.set_xticklabels([r'$\Gamma$', r'$M$', r'$K$', r'$\Gamma$'])
     ax.set_xlabel(xlab)
     ax.set_ylabel(r'$E/E_R$')
-    if U_mag is not None:
-        ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, N = {N}, W = {W}')
+    # if U_mag is not None:
+    #     ax.set_title(f'U = {U_mag}, V = {V_mag}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, N = {N}, W = {W}')
+    title_str = ''
+    for k,v in title_params.items():
+        title_str += ', ' + k + r'$=$' + str(np.round(v, dp))
+    # title_str = f'U = {U_mag}, V = {V_mag}, N = {N}, Dx = {Dx}, Dy = {Dy}, Dz = {Dz}, W = {W}'
+    title_str = title_str[2:]
+    ax.set_title(title_str)
     if Elim is not None:
         ax.set_ylim(*Elim)
     plt.show()
