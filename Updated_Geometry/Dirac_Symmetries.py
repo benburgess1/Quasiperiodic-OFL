@@ -331,13 +331,20 @@ def verify_commutations():
     sd = np.kron(I2, sz)
     a = 1
     b = -1
-    U1 = np.kron(np.array([[a,0],[0,b]]), sy)        # S1 = U1 K
-    sd2 = np.kron(0.5*(a+b)*sx + 0.5*(a-b)*sy, sy)
+    # U1 = np.kron(np.array([[a,0],[0,b]]), sy)        # S1 = U1 K
+    U1 = np.kron(sz, sy)        # S1 = U1 K
+    # sd2 = np.kron(0.5*(a+b)*sx + 0.5*(a-b)*sy, sy)
+    sd2 = np.kron(sy, sy)
     # Dx = np.kron(sy, sy)
     Dx = np.kron(sz, sx)
     # Dx = np.kron(I2, sy)
     Dy = np.kron(sx, I2)
     Pz = 1j*np.kron(sy, sx)
+    W = np.kron(sy, I2)
+    # W = np.kron(sy, sx)
+    U_Tx = np.kron(sx, sz)
+    sd3 = np.kron(sy, sx)
+    V = np.kron(sz, sy)
 
     # Commutators of symmetry operators:
     print('Commutators of symmetry operators:')
@@ -408,6 +415,67 @@ def verify_commutations():
     print(f'{{Dx Dy, Hx}} = {np.round(acomm_DxDyHx, 3)}')
     acomm_DxDyHy = np.linalg.norm(Dx @ Dy @ Hy + Hy @ Dx @ Dy)
     print(f'{{Dx Dy, Hy}} = {np.round(acomm_DxDyHy, 3)}')
+
+    # Commutations of W:
+    print('\nCommutators with W')
+    comm_Wsd = np.linalg.norm(W @ sd - sd @ W)
+    print(f'[W, sd] = {np.round(comm_Wsd, 3)}')
+    comm_Wsd2 = np.linalg.norm(W @ sd2 - sd2 @ W)
+    print(f'[W, sd2] = {np.round(comm_Wsd2, 3)}')
+    # comm_Wsd3 = np.linalg.norm(W @ sd3 - sd3 @ W)
+    # print(f'[W, sd3] = {np.round(comm_Wsd3, 3)}')
+    comm_WPz = np.linalg.norm(W @ Pz - Pz @ W)
+    print(f'[W, Pz] = {np.round(comm_WPz, 3)}')
+    comm_WTx = np.linalg.norm(W @ U_Tx - left_Tx(W, U_Tx))
+    print(f'[W, Tx] = {np.round(comm_WTx, 3)}')
+    comm_WS1 = np.linalg.norm(W @ U1 - left_S1(U1, W))
+    print(f'[W, S1] = {np.round(comm_WS1, 3)}')
+
+    # Commutations of V:
+    print('\nCommutators with V')
+    comm_Vsd = np.linalg.norm(V @ sd - sd @ V)
+    print(f'[V, sd] = {np.round(comm_Vsd, 3)}')
+    comm_Vsd2 = np.linalg.norm(V @ sd2 - sd2 @ V)
+    print(f'[V, sd2] = {np.round(comm_Vsd2, 3)}')
+    # comm_Wsd3 = np.linalg.norm(W @ sd3 - sd3 @ W)
+    # print(f'[W, sd3] = {np.round(comm_Wsd3, 3)}')
+    comm_VPz = np.linalg.norm(V @ Pz - Pz @ V)
+    print(f'[V, Pz] = {np.round(comm_VPz, 3)}')
+    comm_VTx = np.linalg.norm(V @ U_Tx - left_Tx(V, U_Tx))
+    print(f'[V, Tx] = {np.round(comm_VTx, 3)}')
+    comm_VS1 = np.linalg.norm(V @ U1 - left_S1(U1, V))
+    print(f'[V, S1] = {np.round(comm_VS1, 3)}')
+
+    # Anti-Commutations of W:
+    print('\nAnti-commutators with W')
+    acomm_Wsd = np.linalg.norm(W @ sd + sd @ W)
+    print(f'{{W, sd}} = {np.round(acomm_Wsd, 3)}')
+    acomm_Wsd2 = np.linalg.norm(W @ sd2 + sd2 @ W)
+    print(f'{{W, sd2}} = {np.round(acomm_Wsd2, 3)}')
+    # comm_Wsd3 = np.linalg.norm(W @ sd3 - sd3 @ W)
+    # print(f'[W, sd3] = {np.round(comm_Wsd3, 3)}')
+    acomm_WPz = np.linalg.norm(W @ Pz + Pz @ W)
+    print(f'{{W, Pz}} = {np.round(acomm_WPz, 3)}')
+    acomm_WTx = np.linalg.norm(W @ U_Tx + left_Tx(W, U_Tx))
+    print(f'{{W, Tx}} = {np.round(acomm_WTx, 3)}')
+    acomm_WS1 = np.linalg.norm(W @ U1 + left_S1(U1, W))
+    print(f'{{W, S1}} = {np.round(acomm_WS1, 3)}')
+
+    # Anti-Commutations of V:
+    print('\nAnti-commutators with V')
+    acomm_Vsd = np.linalg.norm(V @ sd + sd @ V)
+    print(f'{{V, sd}} = {np.round(acomm_Vsd, 3)}')
+    acomm_Vsd2 = np.linalg.norm(V @ sd2 + sd2 @ V)
+    print(f'{{V, sd2}} = {np.round(acomm_Vsd2, 3)}')
+    # comm_Wsd3 = np.linalg.norm(W @ sd3 - sd3 @ W)
+    # print(f'[W, sd3] = {np.round(comm_Wsd3, 3)}')
+    acomm_VPz = np.linalg.norm(V @ Pz + Pz @ V)
+    print(f'{{V, Pz}} = {np.round(acomm_VPz, 3)}')
+    acomm_VTx = np.linalg.norm(V @ U_Tx + left_Tx(V, U_Tx))
+    print(f'{{V, Tx}} = {np.round(acomm_VTx, 3)}')
+    acomm_VS1 = np.linalg.norm(V @ U1 + left_S1(U1, V))
+    print(f'{{V, S1}} = {np.round(acomm_VS1, 3)}')
+
 
 
 def construct_representation(dq=0.001, N=5, subtract_Eav=True, block_diagonalise=True, 
@@ -528,11 +596,11 @@ if __name__ == '__main__':
     # investigate_H_U(dq=dq, U=U, N=N, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, subtract_Eav=True,
     #                 block_diagonalise=False, P=np.eye(4))
 
-    # verify_commutations()
+    verify_commutations()
 
     # construct_representation(dq=0.001, U=U, N=N, V=V_mag, D=1)
-    HV = calc_HV(V=1.)
-    visualise_matrix(HV, title_str=r'$H_V$')
+    # HV = calc_HV(V=1.)
+    # visualise_matrix(HV, title_str=r'$H_V$')
     # ## Calculate all 'component' matrices
     # Dx_mat = Dx * np.kron(np.eye(8), sx)
     # Dy_mat = Dy * np.kron(np.eye(8), sx)
