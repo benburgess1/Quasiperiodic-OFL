@@ -160,6 +160,15 @@ def calc_Dx(D=1.):
 def calc_Dy(D=1.):
     return D*np.kron(np.eye(8), sy)
 
+def calc_HV(V=1.):
+    orb = np.zeros((8,8), dtype=np.complex128)
+    for i in range(8):
+        orb[(i+2)%8, i] += 2*V
+        # orb[i, (i+2)%8] += V
+    dHV = np.kron(orb, sz)
+    visualise_matrix(dHV)
+    return (dHV + dHV.conj().T)
+
 
 def visualise_matrix(M, title_str=''):
     fig, axs = plt.subplots(1, 3, figsize=(9, 3))
@@ -328,6 +337,7 @@ def verify_commutations():
     Dx = np.kron(sz, sx)
     # Dx = np.kron(I2, sy)
     Dy = np.kron(sx, I2)
+    Pz = 1j*np.kron(sy, sx)
 
     # Commutators of symmetry operators:
     print('Commutators of symmetry operators:')
@@ -337,6 +347,13 @@ def verify_commutations():
     print(f'{{sd2, S1}} = {np.round(acomm_sd2S1, 3)}')
     acomm_sdsd2 = np.linalg.norm(sd @ sd2 + sd2 @ sd)
     print(f'{{sd, sd2}} = {np.round(acomm_sdsd2, 3)}')
+    acomm_Pzsd = np.linalg.norm(Pz @ sd + sd @ Pz)
+    print(f'{{Pz, sd}} = {np.round(acomm_Pzsd, 3)}')
+    acomm_Pzsd2 = np.linalg.norm(Pz @ sd2 + sd2 @ Pz)
+    print(f'{{Pz, sd2}} = {np.round(acomm_Pzsd2, 3)}')
+    comm_PzS1 = np.linalg.norm(Pz @ U1 - left_S1(U1, Pz))
+    print(f'[Pz, S1] = {np.round(comm_PzS1, 3)}')
+
 
     # Commutators with Hx:
     print('\nCommutators with Hx:')
@@ -346,6 +363,8 @@ def verify_commutations():
     print(f'[Hx, S1] = {np.round(comm_HxS1, 3)}')
     acomm_Hxsd2 = np.linalg.norm(Hx @ sd2 + sd2 @ Hx)
     print(f'{{Hx, sd2}} = {np.round(acomm_Hxsd2, 3)}')
+    acomm_HxPz = np.linalg.norm(Hx @ Pz + Pz @ Hx)
+    print(f'{{Hx, Pz}} = {np.round(acomm_HxPz, 3)}')
 
     # Commutators with Dx:
     print('\nCommutators with Dx:')
@@ -368,6 +387,8 @@ def verify_commutations():
     print(f'[Hy, S1] = {np.round(comm_HyS1, 3)}')
     comm_Hysd2 = np.linalg.norm(Hy @ sd2 - sd2 @ Hy)
     print(f'[Hy, sd2] = {np.round(comm_Hysd2, 3)}')
+    acomm_HyPz = np.linalg.norm(Hy @ Pz + Pz @ Hy)
+    print(f'{{Hy, Pz}} = {np.round(acomm_HyPz, 3)}')
 
     # Commutators with Dy:
     print('\nCommutators with Dy:')
@@ -390,7 +411,7 @@ def verify_commutations():
 
 
 def construct_representation(dq=0.001, N=5, subtract_Eav=True, block_diagonalise=True, 
-                             D=1., **kwargs):
+                             D=1., V=1., **kwargs):
     q_K = np.array([0.5, 0.5*np.tan(np.pi/8)])
     dqx = dq * np.array([1, 0])
     Hx = calc_H(q=q_K + dqx, **kwargs)
@@ -399,7 +420,7 @@ def construct_representation(dq=0.001, N=5, subtract_Eav=True, block_diagonalise
     Eav = np.mean(evals[4:8])
 
     # Behaviour for 'random' numerical eigenstates of H
-    U_Pz = calc_Pz(N=N, factor=1j)
+    U_Pz = calc_Pz(N=N, factor=1)
     U_sd = calc_sd()
     U_Tx = calc_U_Tx()
     Hx_proj = project_M(Hx, psi_K)
@@ -440,6 +461,10 @@ def construct_representation(dq=0.001, N=5, subtract_Eav=True, block_diagonalise
     visualise_matrix(U_sd2_proj, title_str=r'$\sigma_d^\prime$, Gauge-Transformed Eigenstates')
 
     U_tot = U_sigma @ U_tau
+    ## Uncomment to view unitary transformations of basis states
+    # visualise_matrix(U_sigma, title_str=r'$U_\sigma$')
+    # visualise_matrix(U_tau, title_str=r'$U_\tau$')
+    # visualise_matrix(U_tot, title_str=r'$U_{tot}$')
 
     # Construct Hy; check it has expected tx x sx form:
     dqy = dq * np.array([0, 1])
@@ -449,15 +474,29 @@ def construct_representation(dq=0.001, N=5, subtract_Eav=True, block_diagonalise
         Hy_proj -= Eav * np.eye(4)
     visualise_matrix(Hy_proj, title_str=r'$H_y$, Gauge-Transformed Eigenstates')
 
+    # Construct Pz and Tx representations individually, instead of just combined S1
+    U_Pz_proj = U_tot @ project_M(U_Pz, psi_K) @ U_tot.conj().T
+    visualise_matrix(U_Pz_proj, title_str=r'$P_z$, Gauge-Transformed Eigenstates')
+
+    Tx_proj = U_tot @ inner_Tx(psi_K, psi_K, U_Tx) @ U_tot      # NB different form of gauge-transformation as Tx is anti-unitary
+    visualise_matrix(Tx_proj, title_str=r'$T_x$, Gauge-Transformed Eigenstates')
+
     # Construct Dx
     Dx = calc_Dx(D=D)
-    Dx_proj = U_tot @ project_M(Dx, psi_K) * U_tot.conj().T
+    Dx_proj = U_tot @ project_M(Dx, psi_K) @ U_tot.conj().T
     visualise_matrix(Dx_proj, title_str=r'$D_x$, Gauge-Transformed Eigenstates')
     
     # Construct Dy
     Dy = calc_Dy(D=D)
-    Dy_proj = U_tot @ project_M(Dy, psi_K) * U_tot.conj().T
+    Dy_proj = U_tot @ project_M(Dy, psi_K) @ U_tot.conj().T
     visualise_matrix(Dy_proj, title_str=r'$D_y$, Gauge-Transformed Eigenstates')
+
+    # Construct HV
+    HV = calc_HV(V=V)
+    visualise_matrix(HV, title_str=r'$H_V$, Full Basis')
+    HV_proj = U_tot @ project_M(HV, psi_K) @ U_tot.conj().T
+    visualise_matrix(HV_proj, title_str=r'$H_V$, Gauge-Transformed Eigenstates')
+
 
 
 
@@ -489,10 +528,11 @@ if __name__ == '__main__':
     # investigate_H_U(dq=dq, U=U, N=N, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, subtract_Eav=True,
     #                 block_diagonalise=False, P=np.eye(4))
 
-    verify_commutations()
+    # verify_commutations()
 
-    # construct_representation(dq=0.001, U=U, N=N, V=V_mag, D=1e-5)
-
+    # construct_representation(dq=0.001, U=U, N=N, V=V_mag, D=1)
+    HV = calc_HV(V=1.)
+    visualise_matrix(HV, title_str=r'$H_V$')
     # ## Calculate all 'component' matrices
     # Dx_mat = Dx * np.kron(np.eye(8), sx)
     # Dy_mat = Dy * np.kron(np.eye(8), sx)
