@@ -22,16 +22,21 @@ def calc_H(q, v=1., V=0., W=0., Dx=0., Dy=0., Dz=0.):
     Hx = np.kron(sz, I2)
     Hy = np.kron(sx, sx)
     H = Hx * q[0] * v + Hy * q[1] * v
+    # Original Couplings:
+    # H += V * np.kron(sz, sy)
+    # H += W * np.kron(sy, I2)
+
+    # Updated Couplings:
     # V couplings
-    H += V * np.kron(sz, sy)
+    H += V * np.kron(sy, sx)
     # W couplings
-    # H += W * np.kron(sy, I2)        # Unsure about this form - will check symmetries
-    H += W * np.kron(sy, sx)        # Unsure about this form - will check symmetries
+    H += W * np.kron(sy, I2)
+
     # D couplings
     H += Dx * np.kron(sz, sx) 
-    # H += Dy * np.kron(sx, I2) 
+    H += Dy * np.kron(sx, I2) 
     # H += Dx * np.kron(I2, sy)     # These forms give equivalent bandstructures, but are just different
-    H += Dy * np.kron(sy, sz)     # eigenvectors - stick to first forms for simplicity
+    # H += Dy * np.kron(sy, sz)     # eigenvectors - stick to first forms for simplicity
     #H += Dz * np.kron()        Need to work this one out; but it doesn't really do anything useful
     return H
 
@@ -61,8 +66,8 @@ def calc_evects(qx_vals, qy_vals, **kwargs):
 
 if __name__ == '__main__':
     ### Constants, parameters etc.
-    V = 0.01
-    W = 0.0
+    V = 0.0
+    W = 0.01
     Dx = 0.0
     Dy = 0.0
     Dz = 0.0
