@@ -129,6 +129,14 @@ def calc_sd():
     U_sd = np.kron(sd_orb, sy)
     return U_sd
 
+def calc_sv(N=5):
+    sd_orb = np.zeros((8,8), dtype=np.complex128)
+    for i in range(8):
+        sd_orb[(8-i)%8, i] = 1
+    dphi = -2*np.pi*N/8
+    U_sv = np.kron(sd_orb, np.sin(dphi/2)*sx + np.cos(dphi/2)*sy)
+    return U_sv
+
 def calc_sd2():
     sd_orb = np.zeros((8,8), dtype=np.complex128)
     for i in range(8):
@@ -166,7 +174,7 @@ def calc_HV(V=1.):
         orb[(i+2)%8, i] += 2*V
         # orb[i, (i+2)%8] += V
     dHV = np.kron(orb, sz)
-    visualise_matrix(dHV)
+    # visualise_matrix(dHV)
     return (dHV + dHV.conj().T)
 
 
@@ -325,7 +333,7 @@ def left_S1(U1, A):
     return U1 @ A.conj()
     
 
-def verify_commutations():
+def verify_commutations(**kwargs):
     Hx = np.kron(sz, I2)
     Hy = np.kron(sx, sx)
     sd = np.kron(I2, sz)
@@ -476,6 +484,128 @@ def verify_commutations():
     acomm_VS1 = np.linalg.norm(V @ U1 + left_S1(U1, V))
     print(f'{{V, S1}} = {np.round(acomm_VS1, 3)}')
 
+    # Commutators with C8
+    # Construct C8:
+    q_K = np.array([0.5, 0.5*np.tan(np.pi/8)])
+    dqx = 0.001 * np.array([1, 0])
+    Hx = calc_H(q=q_K + dqx, **kwargs)
+    evals, evects = np.linalg.eigh(Hx)
+    psi_K = evects[:, 4:8]
+    # Behaviour for 'random' numerical eigenstates of H
+    U_Pz = calc_Pz(N=N, factor=1)
+    U_Tx = calc_U_Tx()
+    S1_proj = calc_S1(psi_K, U_Pz=U_Pz, U_Tx=U_Tx)
+    # Get S1 in form tz x sy by gauge-transforming tau basis states:
+    a = (S1_proj[:2,:2] @ sy)[0,0]
+    phi_a = np.angle(a)
+    b = (S1_proj[2:,2:] @ sy)[0,0]
+    phi_b = np.angle(b)
+    U_tau = np.kron(np.diag([np.exp(-1j*phi_a/2), 1j*np.exp(-1j*phi_b/2)]), I2)
+    S1_proj = U_tau @ S1_proj @ U_tau
+    # Construct sd2:
+    U_sd2 = calc_sd2()
+    U_sd2_proj = U_tau @ project_M(U_sd2, psi_K) @ U_tau.conj().T
+    # Get in form ty x sy by gauge-transforming sigma basis states:
+    c = U_sd2_proj[0,3]
+    d = U_sd2_proj[1,2]
+    a = (c+d)/(2*1j)
+    b = (c-d)/2
+    v = a + 1j*b
+    phi = np.angle(1j / v)
+    U_sigma = np.kron(I2, np.diag([1, np.exp(1j*phi)]))
+    U_sd2_proj = U_sigma @ U_sd2_proj @ U_sigma.conj().T
+
+    U_tot = U_sigma @ U_tau
+
+    # Construct C8
+    U_C8 = calc_c8(N=5)
+    C8 = U_tot @ project_M(U_C8, psi_K) @ U_tot.conj().T
+    # Redefine Tx in the subspace
+    U_Tx = np.kron(sx, sz)
+    # Construct sd3
+    sd3 = C8 @ sd @ np.linalg.inv(C8)
+
+    # phi = np.pi/4
+    # C8 *= np.exp(1j*phi)
+
+    # Investigate commutations of C8
+    V = np.kron(sy, sx)
+    W = np.kron(sy, I2)
+    print('\nCommutators of C8')
+    comm_sdC8 = np.linalg.norm(sd @ C8 - C8 @ sd)
+    print(f'[sd, C8] = {np.round(comm_sdC8, 3)}')
+    comm_sd2C8 = np.linalg.norm(sd2 @ C8 - C8 @ sd2)
+    print(f'[sd2, C8] = {np.round(comm_sd2C8, 3)}')
+    comm_sd3C8 = np.linalg.norm(sd3 @ C8 - C8 @ sd3)
+    print(f'[sd3, C8] = {np.round(comm_sd3C8, 3)}')
+    comm_sdsd2C8 = np.linalg.norm(sd @ sd2 @ C8 - C8 @ sd @ sd2)
+    print(f'[sd x sd2, C8] = {np.round(comm_sdsd2C8, 3)}')
+    comm_sdsd3C8 = np.linalg.norm(sd @ sd3 @ C8 - C8 @ sd @ sd3)
+    print(f'[sd x sd3, C8] = {np.round(comm_sdsd3C8, 3)}')
+    comm_TxC8 = np.linalg.norm(left_Tx(C8, U_Tx) - C8 @ U_Tx)
+    print(f'[Tx, C8] = {np.round(comm_TxC8, 3)}')
+    comm_VC8 = np.linalg.norm(V @ C8 - C8 @ V)
+    print(f'[V, C8] = {np.round(comm_VC8, 3)}')
+    comm_WC8 = np.linalg.norm(W @ C8 - C8 @ W)
+    print(f'[W, C8] = {np.round(comm_WC8, 3)}')
+
+    print('\nAnti-commutators of C8')
+    acomm_sdC8 = np.linalg.norm(sd @ C8 + C8 @ sd)
+    print(f'{{sd, C8}} = {np.round(acomm_sdC8, 3)}')
+    acomm_sd2C8 = np.linalg.norm(sd2 @ C8 + C8 @ sd2)
+    print(f'{{sd2, C8}} = {np.round(acomm_sd2C8, 3)}')
+    acomm_sdsd2C8 = np.linalg.norm(sd @ sd2 @ C8 + C8 @ sd @ sd2)
+    print(f'{{sd x sd2, C8}} = {np.round(acomm_sdsd2C8, 3)}')
+    acomm_TxC8 = np.linalg.norm(left_Tx(C8, U_Tx) + C8 @ U_Tx)
+    print(f'{{Tx, C8}} = {np.round(acomm_TxC8, 3)}')
+    acomm_VC8 = np.linalg.norm(V @ C8 + C8 @ V)
+    print(f'{{V, C8}} = {np.round(acomm_VC8, 3)}')
+    acomm_WC8 = np.linalg.norm(W @ C8 + C8 @ W)
+    print(f'{{W, C8}} = {np.round(acomm_WC8, 3)}')
+
+    print('\nCommutators of sd3')
+    comm_sd3W = np.linalg.norm(sd3 @ W - W @ sd3)
+    print(f'[sd3, W] = {np.round(comm_sd3W, 3)}')
+    comm_sd3V = np.linalg.norm(sd3 @ V - V @ sd3)
+    print(f'[sd3, V] = {np.round(comm_sd3V, 3)}')
+    comm_sd3sd = np.linalg.norm(sd3 @ sd - sd @ sd3)
+    print(f'[sd3, sd] = {np.round(comm_sd3sd, 3)}')
+    comm_sd3sd2 = np.linalg.norm(sd3 @ sd2 - sd2 @ sd3)
+    print(f'[sd3, sd2] = {np.round(comm_sd3sd2, 3)}')
+    comm_sd3sdsd2 = np.linalg.norm(sd3 @ sd @ sd2 - sd @ sd2 @ sd3)
+    print(f'[sd3, sd x sd2] = {np.round(comm_sd3sdsd2, 3)}')
+    comm_sd3sd_p_sd2 = np.linalg.norm(sd3 @ (sd + sd2)/np.sqrt(2) - (sd + sd2)/np.sqrt(2) @ sd3)
+    print(f'[sd3, (sd + sd2)/sqrt(2)] = {np.round(comm_sd3sd_p_sd2, 3)}')
+    comm_sd3sd_m_sd2 = np.linalg.norm(sd3 @ (sd - sd2)/np.sqrt(2) - (sd - sd2)/np.sqrt(2) @ sd3)
+    print(f'[sd3, (sd - sd2)/sqrt(2)] = {np.round(comm_sd3sd_m_sd2, 3)}')
+    
+
+    # print((sd + sd2) / np.sqrt(2))
+
+    # Construct sv
+    U_sv = calc_sv(N=5)
+    sv = U_tot @ project_M(U_sv, psi_K) @ U_tot.conj().T
+    print('\nCommutators of sv')
+    comm_sdsv = np.linalg.norm(sd @ sv - sv @ sd)
+    print(f'[sd, sv] = {np.round(comm_sdsv, 3)}')
+    comm_sd2sv = np.linalg.norm(sd2 @ sv - sv @ sd2)
+    print(f'[sd2, sv] = {np.round(comm_sd2sv, 3)}')
+    comm_C8sv = np.linalg.norm(C8 @ sv - sv @ C8)
+    print(f'[C8, sv] = {np.round(comm_C8sv, 3)}')
+    comm_C8sdsv = np.linalg.norm(C8 @ sd @ sv - sd @ sv @ C8)
+    print(f'[C8, sd x sv] = {np.round(comm_C8sdsv, 3)}')
+    comm_sdsd2sv = np.linalg.norm(sd @ sd2 @ sv - sv @ sd @ sd2)
+    print(f'[sd x sd2, sv] = {np.round(comm_sdsd2sv, 3)}')
+    comm_Txsv = np.linalg.norm(left_Tx(sv, U_Tx) - sv @ U_Tx)
+    print(f'[Tx, sv] = {np.round(comm_Txsv, 3)}')
+    comm_Vsv = np.linalg.norm(V @ sv - sv @ V)
+    print(f'[V, sv] = {np.round(comm_Vsv, 3)}')
+    comm_Wsv = np.linalg.norm(W @ sv - sv @ W)
+    print(f'[W, sv] = {np.round(comm_Wsv, 3)}')
+    comm_svsd_p_sd2 = np.linalg.norm(sv @ (sd + sd2)/np.sqrt(2) - (sd + sd2)/np.sqrt(2) @ sv)
+    print(f'[sv, (sd + sd2)/sqrt(2)] = {np.round(comm_svsd_p_sd2, 3)}')
+    comm_svsd_m_sd2 = np.linalg.norm(sv @ (sd - sd2)/np.sqrt(2) - (sd - sd2)/np.sqrt(2) @ sv)
+    print(f'[sv, (sd - sd2)/sqrt(2)] = {np.round(comm_svsd_m_sd2, 3)}')
 
 
 def construct_representation(dq=0.001, N=5, subtract_Eav=True, block_diagonalise=True, 
@@ -565,6 +695,27 @@ def construct_representation(dq=0.001, N=5, subtract_Eav=True, block_diagonalise
     HV_proj = U_tot @ project_M(HV, psi_K) @ U_tot.conj().T
     visualise_matrix(HV_proj, title_str=r'$H_V$, Gauge-Transformed Eigenstates')
 
+    # Construct C8
+    U_C8 = calc_c8(N=5)
+    C8_proj = U_tot @ project_M(U_C8, psi_K) @ U_tot.conj().T
+    visualise_matrix(C8_proj, title_str=r'$C_8$, Gauge-Transformed Eigenstates')
+
+    C8_proj_4 = np.linalg.matrix_power(C8_proj, 4)      # Should equal Pz (up to a real factor)
+    visualise_matrix(C8_proj_4, title_str=r'$C_8^4$, Gauge-Transformed Eigenstates')
+
+    # Construct sd3
+    U_sd3_proj = C8_proj @ U_sd_proj @ np.linalg.inv(C8_proj)
+    visualise_matrix(U_sd3_proj, title_str=r'$\sigma_d^{\prime \prime}$, Gauge-Transformed Eigenstates')
+
+    # Construct sv
+    U_sv = calc_sv(N=5)
+    U_sv_proj = U_tot @ project_M(U_sv, psi_K) @ U_tot.conj().T
+    visualise_matrix(U_sv_proj, title_str=r'$\sigma_v$, Gauge-Transformed Eigenstates')
+
+    
+
+
+
 
 
 
@@ -596,9 +747,9 @@ if __name__ == '__main__':
     # investigate_H_U(dq=dq, U=U, N=N, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, subtract_Eav=True,
     #                 block_diagonalise=False, P=np.eye(4))
 
-    verify_commutations()
+    # verify_commutations(U=U, N=N, V=V_mag)
 
-    # construct_representation(dq=0.001, U=U, N=N, V=V_mag, D=1)
+    construct_representation(dq=0.001, U=U, N=N, V=V_mag, D=1)
     # HV = calc_HV(V=1.)
     # visualise_matrix(HV, title_str=r'$H_V$')
     # ## Calculate all 'component' matrices
