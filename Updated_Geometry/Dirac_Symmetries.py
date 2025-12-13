@@ -109,7 +109,7 @@ def calc_c8(N=5):
     dphi = N * np.pi / 4
     c8_orb = np.zeros((8, 8), dtype=np.complex128)
     for i in range(8):
-        c8_orb[(i+1)%8, i] = 1
+        c8_orb[(i-1)%8, i] = 1
     c8_spin = np.array([[np.exp(1j*dphi/2), 0],
                         [0, np.exp(-1j*dphi/2)]])
     U_c8 = np.kron(c8_orb, c8_spin)
@@ -122,11 +122,14 @@ def calc_Pz(N=5, factor=1.):
     return Pz
 
 
-def calc_sd():
+def calc_sd(N=5):
     sd_orb = np.zeros((8,8), dtype=np.complex128)
     for i in range(8):
         sd_orb[7-i, i] = 1
-    U_sd = np.kron(sd_orb, sy)
+    if N % 2 == 0:
+        U_sd = np.kron(sd_orb, sx)
+    else:
+        U_sd = np.kron(sd_orb, sy)
     return U_sd
 
 def calc_sv(N=5):
@@ -747,9 +750,9 @@ if __name__ == '__main__':
     # investigate_H_U(dq=dq, U=U, N=N, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, subtract_Eav=True,
     #                 block_diagonalise=False, P=np.eye(4))
 
-    # verify_commutations(U=U, N=N, V=V_mag)
+    verify_commutations(U=U, N=N, V=V_mag)
 
-    construct_representation(dq=0.001, U=U, N=N, V=V_mag, D=1)
+    # construct_representation(dq=0.001, U=U, N=N, V=V_mag, D=1)
     # HV = calc_HV(V=1.)
     # visualise_matrix(HV, title_str=r'$H_V$')
     # ## Calculate all 'component' matrices
