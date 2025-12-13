@@ -26,7 +26,7 @@ w = np.exp(1j*dphi)
 G = np.column_stack((np.cos(2*np.pi*l/8), np.sin(2*np.pi*l/8)))
 
 
-def calc_H(q, U=np.ones(8), G=G, V=0., Dx=0., Dy=0., Dz=0., W=0.):
+def calc_H(q, U=np.zeros(8), G=G, V=0., Dx=0., Dy=0., Dz=0., W=0.):
     H = np.zeros((16, 16), dtype=np.complex128)
     # U couplings:
     for i in range(8):
@@ -47,11 +47,24 @@ def calc_H(q, U=np.ones(8), G=G, V=0., Dx=0., Dy=0., Dz=0., W=0.):
     # for i in range(4):
     #     orb[(i+2)%8, i] += 2*W*1j
     #     orb[(i+6)%8, i+4] += -2*W*1j
-    for i in range(3,7):
-        orb[(i+2)%8, i] += 2*W*1j
-        orb[(i+6)%8, (i+4)%8] += -2*W*1j
-    dHW = np.kron(orb, I2)
-    H += (dHW + dHW.conj().T)
+    # W coupling (updated)
+    # orb = np.zeros((8,8), dtype=np.complex128)
+    # for i in range(8):
+    #     orb[(i+2)%8, i] += 2*W
+    #     # orb[i, (i+2)%8] += V
+    # dHW = np.kron(orb, I2)
+    # H += (dHW + dHW.conj().T)
+    for i in range(8):
+        orb = np.zeros((8,8), dtype=np.complex128)
+        orb[(i+3)%8, i] = W * (-1)**i
+        orb[i, (i+3)%8] = W * (-1)**i
+        dHW = np.kron(orb, I2)
+        H += (dHW + dHW.conj().T)
+    # for i in range(3,7):
+    #     orb[(i+2)%8, i] += 2*W*1j
+    #     orb[(i+6)%8, (i+4)%8] += -2*W*1j
+    # dHW = np.kron(orb, I2)
+    # H += (dHW + dHW.conj().T)
     # D couplings:
     H += Dx * np.kron(np.eye(8), sx)
     H += Dy * np.kron(np.eye(8), sy)
@@ -473,13 +486,18 @@ if __name__ == '__main__':
     U = -U_mag * np.exp(1j * (phi0 - 2 * np.pi * N * l / 8))
     V_mag = 0.0
     Dx = 0.0
-    Dy = 0.0
+    Dy = 0.01
     Dz = 0.0
-    W = 0.001
+    W = 0.00
+    # for i in range(U.size):
+    #     if i % 2 == 0:
+    #         U[i] *= 2.
+    #     else:
+    #         U[i] *= 0.5
 
-    # q_vals = calc_q_GMKG()
-    # evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
-    # plot_BS_GMKG(evals=evals, U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    q_vals = calc_q_GMKG()
+    evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    plot_BS_GMKG(evals=evals, U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
 
     q_K = np.array([0.5, 0.5*np.tan(np.pi/8)])
     # dq = np.column_stack((np.linspace(-0.01, 0.01, 1000), np.zeros(1000)))
@@ -488,9 +506,11 @@ if __name__ == '__main__':
     q_vals = q_K + dq
     # e = q_K / np.linalg.norm(q_K)
     # q_vals = np.column_stack((e[0] * np.linspace(-0.01, 0.01, 1000), e[1] * np.linspace(-0.01, 0.01, 1000))) + q_K
-    evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
-    plot_BS_path(evals=evals, q_vals=q_vals, x='qx', U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
-                 Elim=(0.24,0.27))
+    # evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    # plot_BS_path(evals=evals, q_vals=q_vals, x='qx', 
+    #              title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W})
+                #  U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
+                #  Elim=(0.24,0.27))
 
     dq = 0.01*np.linspace(-1,1,50)
     qx_vals = dq + 0.5
@@ -499,12 +519,12 @@ if __name__ == '__main__':
     # qx_vals = np.linspace(0.5032, 0.5036, 200)
     # qy_vals = np.linspace(0.2081, 0.2085, 200)
 
-    evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
-    # plot_evals_surf(evals, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
-    n_bands = np.arange(6)
-    curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
-    plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
-              title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W},
-              bands_in_title=False, dp=5)
+    # evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    # # plot_evals_surf(evals, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
+    # n_bands = np.arange(6)
+    # curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
+    # plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
+    #           title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W},
+    #           bands_in_title=False, dp=5)
     
 
