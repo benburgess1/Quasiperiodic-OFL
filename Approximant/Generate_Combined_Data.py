@@ -4,7 +4,7 @@ import Approximant_Vectors as AV
 import Approximant_Curvature as AC
 
 ### ---- System Parameters ---- ###
-N = 2
+N = 5
 phi0 = 0.
 a = 3
 R = 8
@@ -18,8 +18,9 @@ g_vects = np.roll(G_vects, -1, axis=0) - G_vects
 # g3 = np.roll(G_vects, -3, axis=0) - G_vects
 # g_vects = np.row_stack((g1, g2, g3))
 
-U_vals = np.array([0.1])
-V_vals = np.array([0.05])
+U_vals = np.array([0.3])
+# V_vals = np.array([0.05, 0.05])
+V_vals = 0.12 * np.ones(U_vals.size)
 # data = np.load('Req_5Fold.npz')
 # U_vals = data['P_req'][:,0]
 # V_vals = data['P_req'][:,1]
@@ -101,11 +102,11 @@ for i in range(len(U_vals)):
     # file_str = 'Approximant/Data/5Fold/Data_NonAb'
     # file_str += ('_a' + str(int(a)) + '_U' + str(np.round(U0,4)) +  '_N' 
     #             + str(int(np.round(N))) + '_V' + str(np.round(V0,4)) + '.npz')
-    file_str = 'Data/8Fold/Old_Data/Data_'
+    file_str = 'Data/8Fold/Eigenvectors/Data_'
     file_str += ('R' + str(int(R)) + '_a' + str(int(a)) + '_c' + str(np.round(cutoff,1)) + '_U' + str(np.round(U0,4)) +  '_N' 
-                + str(int(np.round(N))) + '_V' + str(np.round(V0,4)) + '_fine.npz')
+                + str(int(np.round(N))) + '_V' + str(np.round(V0,4)) + '.npz')
     np.savez(file_str, qx_vals=qx_vals, qy_vals=qy_vals, 
-             E_vals=E_vals, dos_vals=dos_vals, E_bins=E_bins, dE=dE,
+             E_vals=E_vals, evects=evects_arr, dos_vals=dos_vals, E_bins=E_bins, dE=dE,
              curv_vals=curv_vals, C=C, gauge_idx=gauge_idx, max_idx=max_idx,
              U0=U0, N=N, V0=V0, V=V, R=R,
              basis=basis, a=a, cutoff=cutoff)

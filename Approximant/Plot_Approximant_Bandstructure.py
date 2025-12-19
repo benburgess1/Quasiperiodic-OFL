@@ -230,7 +230,8 @@ if __name__ == '__main__':
     # f = 'DarkState/Data/5Fold/Detailed_Chern_Data_R5_a3_c5.5_V110.0_V00.0_p11_p20_phi11_phi21.npz'
     # f = 'DarkState/Data/8Fold/Detailed_Chern_Data_R8_a3_c5.5_V110.0_V00.0_p11_p20_phi10_phi20.npz'
     # f = 'DarkState/Data/5Fold/Detailed_Chern_Data_R5_a3_c11.5_V1200.0_V00.0_p11_p20_phi10_phi20.npz'
-    f = 'Approximant/Data/8Fold/Old_Data/Data_R8_a3_c2.5_U0.1_N2_V0.05_fine.npz'
+    # f = 'Approximant/Data/8Fold/Old_Data/Data_R8_a3_c2.5_U0.28_N5_V0.1.npz'
+    f = 'Approximant/Data/8Fold/Eigenvectors/Data_Multiband_R8_a3_c2.5_U0.3_N5_V0.12.npz'
     filenames = ['DarkState/Data/5Fold/Data_R5_a3_c5.5_V110.0_V00.0_p11_p20_phi10_phi20.npz',
                  'DarkState/Data/5Fold/Data_R5_a3_c7.5_V110.0_V00.0_p11_p20_phi10_phi20.npz']
     # f = 'DarkState/Data/5Fold/Detailed_Chern_Data_R5_a3_c3.5_V10.2_V00.0_p11_p20_phi10_phi20.npz'
@@ -245,7 +246,9 @@ if __name__ == '__main__':
     idx = data['max_idx']
     print(idx)
     C = data['C']
-    print('C = ', np.round(np.real(C),2))
+    print('C = ', np.round(-np.real(C),2))
+    dE = np.min(data['E_vals'][idx+1,:,:]) - np.max(data['E_vals'][idx,:,:])
+    print('dE = ' + str(np.round(dE,4)))
     # print(np.sum(np.real(C)[:13]))
     # E_vals = data['E_vals']
     # print(np.min(E_vals[14,:,:]) - np.max(E_vals[13,:,:]))
@@ -260,7 +263,7 @@ if __name__ == '__main__':
 
     # # f = 'DoS_approx_a3_U200.0_N3_V150.0_dE0.1.npz'
     # plot_BS_surface(f, bands=np.arange(24))
-    plot_DoS(f, scalefactor=1., xlim=None, calc_new=False, dE=0.01, n_occ=idx+1, plot_E_max=True,
+    plot_DoS(f, scalefactor=1., xlim=None, calc_new=False, dE=0.01, n_occ=9, plot_E_max=True,
             chern_in_title=False)
     # for i in range(30,50):
     #     print(f'i = {i}')

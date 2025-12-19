@@ -221,7 +221,7 @@ def calc_BS_point(q=None, return_evects=False, sparse=False, num_evals=20,
         return evals
     
 
-def calc_BS_line(q_vals, basis=calc_square_basis_states(a=3, cutoff=2.5),
+def calc_BS_line(q_vals, basis=calc_square_basis_states(a=3, cutoff=2.5), 
                  **kwargs):
     if 'num_evals' in kwargs:
         N = kwargs.get('num_evals')
