@@ -55,11 +55,11 @@ def calc_n(x_vals, y_vals, U0=0.1, U=None, N=5, V0=0.05, R=8, save=True,
     
 
 def calc_B_eff(x_vals, y_vals, U0=0.1, U=None, N=5, V0=0.05, R=8, save=True, 
-               filename=None, G_vects=None, a=None, **kwargs):
+               filename=None, G_vects=None, a=-1, **kwargs):
     l = np.arange(R)
     if G_vects is None:
         G_vects = np.column_stack((np.cos(2*np.pi*l/R), np.sin(2*np.pi*l/R)))
-    if a is not None:
+    if a > 0:
         G_vects = AV.square_approximant(a=a, G_vects=G_vects)
     g_vects = np.roll(G_vects, -1, axis=0) - G_vects
     if U is None:
@@ -104,9 +104,9 @@ def calc_B_eff(x_vals, y_vals, U0=0.1, U=None, N=5, V0=0.05, R=8, save=True,
     print('\nDone')
     if save:
         if filename is None:
-            filename = 'Updated Geometry/Data/B_eff_R' + str(R) + '_U' + str(np.round(U0,4)) + '_N' + str(N) + '_V' + str(np.round(V0,4)) + '.npz'
+            filename = 'Updated_Geometry/Data/B_eff_R' + str(R) + '_U' + str(np.round(U0,4)) + '_N' + str(N) + '_V' + str(np.round(V0,4)) + '.npz'
         np.savez(filename, x_vals=x_vals, y_vals=y_vals, B_eff=B_eff, 
-                 U0=U0, V0=V0, R=R, N=N, a=a)
+                 U0=U0, V0=V0, R=R, N=N, a=a, dx=x_vals[1]-x_vals[0], xmax=np.max(x_vals))
     else:
         return B_eff
 
@@ -307,12 +307,13 @@ def plot_B_eff(filename, shift_r=True, cmap=plt.colormaps['bwr'], levels=None,
         V0 = np.round(data['V0'],4)
         N = data['N']
         R = data['R']
+        dx = data['dx']
         title_str = (r'$B_{eff}(\mathbf{r}), R=$' + str(R) + r', $U=$' + str(U0) 
-                     + r', $V=$' + str(V0) + r', $N=$' + str(N))
+                     + r', $V=$' + str(V0) + r', $N=$' + str(N) + r', $dx=$' + str(np.round(dx,5)))
         if fluxdensity_in_title:
             flux = np.sum(B_eff)
-            a = data['a']
-            title_str += r', $\langle B \rangle_{\mathbf{r}}=$' + str(np.round(flux/(2*np.pi*a)**2,3))
+            A = (np.max(x_vals) - np.min(x_vals))**2
+            title_str += r', $\langle B \rangle_{\mathbf{r}}=$' + str(np.round(flux/A,3))
         ax.set_title(title_str)
     plt.show()
 
@@ -468,24 +469,98 @@ def plot_phi_vs_a(filename, average_uc=True,
     plt.show()
 
 
+def sample_B_eff(N_samples=10, dx=0.1, xmax=20, sample_xmax=1000, save=True, 
+                 save_filename='Data.npz', **kwargs):
+    r0 = np.random.random((N_samples, 2)) * sample_xmax
+    B_av_vals = np.zeros(N_samples)
+    for i in range(N_samples):
+        print(f'Evaluating sample {i+1} out of {N_samples}...')
+        [x0, y0] = r0[i,:]
+        x_vals = np.arange(x0, x0+xmax, dx)
+        y_vals = np.arange(y0, y0+xmax, dx)
+        B_eff = calc_B_eff(x_vals, y_vals, save=False, **kwargs)
+        flux = np.real(np.sum(B_eff))
+        A = (np.max(x_vals) - np.min(x_vals)) * (np.max(y_vals) - np.min(y_vals))
+        B_av_vals[i] = flux / A
+    B_av_mean = np.mean(B_av_vals)
+    B_av_std = np.std(B_av_vals)
+    if save:
+        np.savez(save_filename, r0=r0, B_av_vals=B_av_vals, 
+                 B_av_mean=B_av_mean, B_av_std=B_av_std,
+                 dx=dx, xmax=xmax, sample_xmax=sample_xmax, **kwargs)
+    else:
+        return r0, B_av_vals
+
+
+def visualise_samples(f, dp=5):
+    data = np.load(f)
+    r0 = data['r0']
+    xmax = data['xmax']
+    sample_xmax = data['sample_xmax']
+    B_mean = data['B_av_mean']
+    B_std = data['B_av_std']
+    
+    fig, ax = plt.subplots()
+    for i in range(r0.shape[0]):
+        xy = r0[i,:]
+        patch = mpl.patches.Rectangle(xy, width=xmax, height=xmax, ec='b', fc='lightblue')
+        ax.add_patch(patch)
+
+    U0 = data['U0']
+    R = data['R']
+    N = data['N']
+    V0 = data['V0']
+    title_str = (r'$R=$' + str(R) + r', $U=$' + str(U0) 
+                     + r', $V=$' + str(V0) + r', $N=$' + str(N) + 
+                     r', $\langle B \rangle_{\mathbf{r}} = $' + str(np.round(B_mean, dp)) 
+                     + r'$\pm$' + str(np.round(B_std, dp)))
+    ax.set_title(title_str)
+
+    ax.set_xlabel(r'$x |\mathbf{G}|$')
+    ax.set_ylabel(r'$y |\mathbf{G}|$')
+    ax.set_xlim(0, sample_xmax)
+    ax.set_ylim(0, sample_xmax)
+    ax.set_aspect('equal')
+
+    plt.show()
+
+
+
 if __name__ == '__main__':
     # x = np.linspace(12,14,101)
     # y = np.linspace(7,9,101)
     U_mag = 0.05
-    V_mag = 0.0
+    V_mag = 0.25
     R = 8
     N = 5
     a = 3
-    dx = 0.01
-    x_vals = np.arange(0, 2*np.pi*a, dx)
-    y_vals = np.copy(x_vals)
-    # x_vals = np.arange(27.92, 27.96, dx)
-    # y_vals = np.arange(20.64, 20.68 , dx)
-    # f = f'Updated_Geometry/Data/B_eff_R{R}_a{a}_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+    dx = 0.1
+    xmax = 20
+    x0 = 400
+    y0 = 200
+    x_vals = np.arange(x0, x0+xmax, dx)
+    y_vals = np.arange(y0, y0+xmax, dx)
+    # x_vals = np.arange(0, xmax, dx)
+    # y_vals = np.copy(x_vals)
+    # x_vals = np.arange(18.8, 18.9, dx)
+    # y_vals = np.arange(9.4, 9.5 , dx)
+    # f = f'Updated_Geometry/Data/B_eff_R{R}_dx{dx}_xmax{xmax}_x0{x0}_y0{y0}_U{U_mag}_N{N}_V{V_mag}.npz'
+    # f = f'Updated_Geometry/Data/B_eff_peak_R{R}_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = f'Data/B_eff_R{R}_a{a}_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+    f = f'Updated_Geometry/Data/B_av_samples_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
+    # f = f'Data/B_av_samples_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
     # calc_B_eff(x_vals=x_vals, y_vals=y_vals, U0=U_mag, N=N, V0=V_mag,
-    #            R=R, a=a, filename=f)
+    #            R=R, filename=f)
     # plot_B_eff(f, shift_r=True)#, levels=np.linspace(-0.001,0.001,200), ticks=[-0.001,0,0.001])#, axlim=(0,2*np.pi*a))
+    # sample_B_eff(N_samples=100, dx=dx, xmax=xmax, sample_xmax=1000, 
+    #              save=True, save_filename=f, U0=U_mag, N=N, V0=V_mag, R=R)
+    data = np.load(f)
+    print(data['r0'])
+    print(data['B_av_vals'])
+    print(data['B_av_mean']*(2*np.pi)**2)
+    print(data['B_av_std']*(2*np.pi)**2)
+
+    visualise_samples(f)
 
     a_vals = np.arange(1,11)
     dx_vals = dx * np.ones(a_vals.size)
@@ -494,7 +569,7 @@ if __name__ == '__main__':
     # f = 'Updated_Geometry/Data/Phi_R8_a1-10_dx0.01_U0.1_N5_V0.05.npz'
     # calc_phi_vs_a(a_vals=a_vals, dx_vals=dx_vals, U0=U_mag, N=N, V0=V_mag, R=R,
     #               filename=f)
-    plot_phi_vs_a(f, average_uc=True)
+    # plot_phi_vs_a(f, average_uc=True)
 
 
     # x = np.arange(30,32, dtype=np.float64)
