@@ -446,7 +446,8 @@ def calc_phi_vs_a(a_vals, dx_vals=None, save=True, filename='Data.npz', **kwargs
 
 
 def plot_phi_vs_a(filename, average_uc=True, 
-                  title_params={'R':r'$R$', 'U0':r'$U$', 'V0':r'$V$', 'N':r'$N$'}, dp=3):
+                  title_params={'R':r'$R$', 'U0':r'$U$', 'V0':r'$V$', 'N':r'$N$'}, dp=3,
+                  plot_QC=False, B_mean=0, B_std=0):
     data = np.load(filename)
     a = data['a_vals']
     phi = data['phi_vals']
@@ -466,6 +467,42 @@ def plot_phi_vs_a(filename, average_uc=True,
             title_str += ', ' + v + r'$=$' + str(np.round(data[k], dp))
     ax.set_title(title_str)
     ax.set_ylim(bottom=0)
+    if plot_QC:
+        ax.axhline(B_mean-B_std, color='r', ls=':')
+        ax.axhline(B_mean+B_std, color='r', ls=':')
+    plt.show()
+
+
+def plot_phi_n_vs_a(filename, average_uc=True, 
+                  title_params={'R':r'$R$', 'U0':r'$U$', 'V0':r'$V$', 'N':r'$N$'}, dp=3,
+                  plot_QC=False, B_QC=0, n_QC=4*(np.sqrt(2)-1)):
+    data = np.load(filename)
+    a = data['a_vals']
+    phi = data['phi_vals']
+    # print(data.files)
+    if average_uc:
+        phi /= (2*np.pi*a)**2
+        ylab = r'$\langle B \rangle_{\mathbf{r}}$'
+    else:
+        ylab = r'$\Phi$'
+    ylab += r'$/n$'
+    a = np.arange(1,11)
+    N_bands = np.array([2,4,14,28,46,56,82,112,126,164])
+    n = N_bands / (a**2)
+    y = phi / n
+    fig,ax = plt.subplots()
+    ax.plot(a, y, color='b', marker='x', ls='-')
+    ax.set_xlabel(r'$a$')
+    ax.set_ylabel(ylab)
+    title_str = ylab
+    for k,v in title_params.items():
+        if k in data.files:
+            title_str += ', ' + v + r'$=$' + str(np.round(data[k], dp))
+    ax.set_title(title_str)
+    ax.set_ylim(bottom=0)
+    if plot_QC:
+        ax.axhline(B_QC/n_QC, color='r', ls=':')
+        # ax.axhline(B_mean+B_std, color='r', ls=':')
     plt.show()
 
 
@@ -525,12 +562,31 @@ def visualise_samples(f, dp=5):
     plt.show()
 
 
+def generate_n_phi_table(f, dp=3):
+    data = np.load(f)
+    a = data['a_vals']
+    phi = data['phi_vals'] / (2*np.pi)
+    N_bands = np.array([2,4,14,28,46,56,82,112,126,164], dtype=np.int32)
+    cellText = np.column_stack((np.round(a), np.round(N_bands), np.round(phi, dp), np.round(N_bands/phi, dp)))
+    colLabels = [r'$a$', r'$N_B$', r'$\Phi / 2 \pi$', 'Ratio']
+    fig, ax = plt.subplots()
+    plt.table(cellText=cellText,
+              colLabels=colLabels,
+              loc='center')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    plt.show()
+
+
+
 
 if __name__ == '__main__':
     # x = np.linspace(12,14,101)
     # y = np.linspace(7,9,101)
     U_mag = 0.05
-    V_mag = 0.25
+    V_mag = 0.05
     R = 8
     N = 5
     a = 3
@@ -547,29 +603,37 @@ if __name__ == '__main__':
     # f = f'Updated_Geometry/Data/B_eff_R{R}_dx{dx}_xmax{xmax}_x0{x0}_y0{y0}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = f'Updated_Geometry/Data/B_eff_peak_R{R}_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = f'Data/B_eff_R{R}_a{a}_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
-    f = f'Updated_Geometry/Data/B_av_samples_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
-    # f = f'Data/B_av_samples_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
+    f = f'Updated_Geometry/Data/B_av_samples_extended_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
+    # f = f'Data/B_av_samples_extended_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
     # calc_B_eff(x_vals=x_vals, y_vals=y_vals, U0=U_mag, N=N, V0=V_mag,
     #            R=R, filename=f)
     # plot_B_eff(f, shift_r=True)#, levels=np.linspace(-0.001,0.001,200), ticks=[-0.001,0,0.001])#, axlim=(0,2*np.pi*a))
-    # sample_B_eff(N_samples=100, dx=dx, xmax=xmax, sample_xmax=1000, 
+    # sample_B_eff(N_samples=1000, dx=dx, xmax=xmax, sample_xmax=10000, 
     #              save=True, save_filename=f, U0=U_mag, N=N, V0=V_mag, R=R)
     data = np.load(f)
     print(data['r0'])
     print(data['B_av_vals'])
-    print(data['B_av_mean']*(2*np.pi)**2)
-    print(data['B_av_std']*(2*np.pi)**2)
+    print(data['B_av_mean']*(2*np.pi))
+    print(data['B_av_std']*(2*np.pi))
 
-    visualise_samples(f)
+    # visualise_samples(f)
 
     a_vals = np.arange(1,11)
     dx_vals = dx * np.ones(a_vals.size)
+    U_mag = 0.1
+    V_mag = 0.05
+    R = 8
+    N = 5
+    a = 3
+    dx = 0.01
     # f = f'Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     f = f'Updated_Geometry/Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = 'Updated_Geometry/Data/Phi_R8_a1-10_dx0.01_U0.1_N5_V0.05.npz'
     # calc_phi_vs_a(a_vals=a_vals, dx_vals=dx_vals, U0=U_mag, N=N, V0=V_mag, R=R,
     #               filename=f)
-    # plot_phi_vs_a(f, average_uc=True)
+    # plot_phi_vs_a(f, average_uc=True, plot_QC=True, B_mean=data['B_av_mean'], B_std=data['B_av_std'])
+    # plot_phi_n_vs_a(f, average_uc=True, plot_QC=True, B_QC=data['B_av_mean'])
+    generate_n_phi_table(f)
 
 
     # x = np.arange(30,32, dtype=np.float64)
