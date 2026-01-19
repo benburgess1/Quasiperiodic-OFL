@@ -18,9 +18,9 @@ g_vects = np.roll(G_vects, -1, axis=0) - G_vects
 # g3 = np.roll(G_vects, -3, axis=0) - G_vects
 # g_vects = np.row_stack((g1, g2, g3))
 
-U_vals = np.array([0.3])
+U_vals = np.array([0.06])
 # V_vals = np.array([0.05, 0.05])
-V_vals = 0.12 * np.ones(U_vals.size)
+V_vals = 0.04 * np.ones(U_vals.size)
 # data = np.load('Req_5Fold.npz')
 # U_vals = data['P_req'][:,0]
 # V_vals = data['P_req'][:,1]
