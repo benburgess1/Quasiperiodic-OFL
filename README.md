@@ -37,3 +37,6 @@ This folder contains code used for analysing an alternative 'dark state' Hamilto
 - Plot_Curvature.py: code for plotting the real-space effective magnetic field.
 - Dark_Approximant.py: code for calculating bandstructures, DoS, etc. using the same approximant techniques as previously. The main difference is in how the Fourier components of the Hamiltonian are constructed.
 - Generate_Data.py: script for performing a full analysis of a quasiperiodic system with specified parameters, for a given approximant, basis set, etc.
+
+### Data
+This contains the data used to produce the figures in the paper as .npz files. Files contain the data displayed on the plots, as well as the parameters of the system or calculation.
