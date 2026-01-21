@@ -2,8 +2,6 @@
 
 A collection of Python scripts for studying quasiperiodic optical flux lattices.
 
-These files are slightly messy, and have various derelict functions that I rarely currently use, but have kept in case I want to refer back to them later. If you'd like to use/adapt any of the code, please do get in touch with me and I can help you understand what's actually useful and what isn't.
-
 ## Physical Background
 Quasicrystals have spatial order, but are not periodic. Quasiperiodic systems with non-trivial topology have been theoretically predicted to host various exotic phenomena, but experimental research is lacking. In this work, we propose a scheme whereby a topological quasicrystalline system may be implemented in a cold-atom experiment, through the means of a so-called `quasiperiodic optical flux lattice' (OFL). These files contain Python code for analysing the model Hamiltonian generated in our scheme, to show that it is both quasiperiodic and topological.
 
