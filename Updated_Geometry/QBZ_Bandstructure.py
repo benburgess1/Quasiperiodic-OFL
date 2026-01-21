@@ -482,11 +482,11 @@ if __name__ == '__main__':
     U_mag = 0.05
     l = np.arange(8)
     phi0 = 0
-    N = 5
+    N = 7
     U = -U_mag * np.exp(1j * (phi0 - 2 * np.pi * N * l / 8))
-    V_mag = 0.0
+    V_mag = 0.0001
     Dx = 0.0
-    Dy = 0.01
+    Dy = 0.0
     Dz = 0.0
     W = 0.00
     # for i in range(U.size):
@@ -519,12 +519,13 @@ if __name__ == '__main__':
     # qx_vals = np.linspace(0.5032, 0.5036, 200)
     # qy_vals = np.linspace(0.2081, 0.2085, 200)
 
-    # evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
-    # # plot_evals_surf(evals, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, Dx=Dx, Dy=Dy, Dz=Dz)
-    # n_bands = np.arange(6)
-    # curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
-    # plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
-    #           title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W},
-    #           bands_in_title=False, dp=5)
+    evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    # plot_evals_surf(evals, qx_vals, qy_vals, 
+    #                 title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W})
+    n_bands = np.arange(6)
+    curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
+    plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
+              title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W},
+              bands_in_title=False, dp=5)
     
 

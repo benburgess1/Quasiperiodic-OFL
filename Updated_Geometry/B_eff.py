@@ -588,7 +588,7 @@ if __name__ == '__main__':
     U_mag = 0.05
     V_mag = 0.05
     R = 8
-    N = 5
+    N = 4
     a = 3
     dx = 0.1
     xmax = 20
@@ -603,12 +603,12 @@ if __name__ == '__main__':
     # f = f'Updated_Geometry/Data/B_eff_R{R}_dx{dx}_xmax{xmax}_x0{x0}_y0{y0}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = f'Updated_Geometry/Data/B_eff_peak_R{R}_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = f'Data/B_eff_R{R}_a{a}_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
-    f = f'Updated_Geometry/Data/B_av_samples_extended_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
-    # f = f'Data/B_av_samples_extended_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
+    f = f'Updated_Geometry/Data/B_av_samples_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
+    # f = f'Data/B_av_samples_R{R}_dx{dx}_xmax{xmax}_U{U_mag}_N{N}_V{V_mag}.npz'
     # calc_B_eff(x_vals=x_vals, y_vals=y_vals, U0=U_mag, N=N, V0=V_mag,
     #            R=R, filename=f)
     # plot_B_eff(f, shift_r=True)#, levels=np.linspace(-0.001,0.001,200), ticks=[-0.001,0,0.001])#, axlim=(0,2*np.pi*a))
-    # sample_B_eff(N_samples=1000, dx=dx, xmax=xmax, sample_xmax=10000, 
+    # sample_B_eff(N_samples=100, dx=dx, xmax=xmax, sample_xmax=1000, 
     #              save=True, save_filename=f, U0=U_mag, N=N, V0=V_mag, R=R)
     data = np.load(f)
     print(data['r0'])
@@ -616,7 +616,7 @@ if __name__ == '__main__':
     print(data['B_av_mean']*(2*np.pi))
     print(data['B_av_std']*(2*np.pi))
 
-    # visualise_samples(f)
+    visualise_samples(f)
 
     a_vals = np.arange(1,11)
     dx_vals = dx * np.ones(a_vals.size)
@@ -626,14 +626,14 @@ if __name__ == '__main__':
     N = 5
     a = 3
     dx = 0.01
-    # f = f'Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
-    f = f'Updated_Geometry/Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+    f = f'Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+    # f = f'Updated_Geometry/Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = 'Updated_Geometry/Data/Phi_R8_a1-10_dx0.01_U0.1_N5_V0.05.npz'
     # calc_phi_vs_a(a_vals=a_vals, dx_vals=dx_vals, U0=U_mag, N=N, V0=V_mag, R=R,
     #               filename=f)
     # plot_phi_vs_a(f, average_uc=True, plot_QC=True, B_mean=data['B_av_mean'], B_std=data['B_av_std'])
     # plot_phi_n_vs_a(f, average_uc=True, plot_QC=True, B_QC=data['B_av_mean'])
-    generate_n_phi_table(f)
+    # generate_n_phi_table(f)
 
 
     # x = np.arange(30,32, dtype=np.float64)
