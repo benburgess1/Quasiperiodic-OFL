@@ -12,11 +12,11 @@ G_vects = G0 * np.column_stack((np.cos(np.arange(5)*2*np.pi/5),
 g_vects = np.roll(G_vects, -1, axis=0) - G_vects
 
 
-def calc_phi(N=1, phi0=0):
+def calc_phi(N=1, phi0=0, R=5):
     if N == 0:
-        return phi0 * np.ones(5)
+        return phi0 * np.ones(R)
     else:
-        return phi0 * np.ones(5) + N * np.arange(5) * 2 * np.pi / 5
+        return phi0 * np.ones(R) + N * np.arange(R) * 2 * np.pi / R
     
 
 def expi(t):
@@ -66,7 +66,7 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
             for j,point in enumerate(prev_down):
                 print(f'Evaluating down point {j+1} out of {prev_down.shape[0]}...' + 10*' ', end='\r')
                 # Connect from previous spin-down to new spin-up
-                for G in G_vects[1:,:]:
+                for G in G_vects:
                     # if skip:
                     #     skip = False
                     # else:
@@ -83,7 +83,7 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
             for j,point in enumerate(prev_up):
                 print(f'Evaluating up point {j+1} out of {prev_up.shape[0]}...' + 10*' ', end='\r')
                 # Connect from previous up to new down
-                for G in G_vects[1:,:]:
+                for G in G_vects:
                     # if skip:
                     #     skip = False
                     # else:
@@ -97,6 +97,8 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
                 for g in g_vects:
                     new_up = np.concatenate((new_up, np.array([point+g])), axis=0)
                     new_up = np.concatenate((new_up, np.array([point-g])), axis=0)
+            new_up = new_up[1:,:]
+            new_down = new_down[1:,:]
             print('')
             print('Removing duplicates... ', end='', flush=True)
             new_down = remove_duplicates(new_down)
@@ -269,7 +271,7 @@ def decagon(a=1, r0=np.array([0,0]), color='k'):
 
 
 def plot_basis_states(basis, ms=5, plot_BZ=True, plot_QBZ=False, invert=False, plot_title=True, orders=3,
-                      cutoff=None, inside_QBZ=False):
+                      cutoff=None, inside_QBZ=False, R=5, exclude_down=False):
     fig,ax = plt.subplots()
     (b_up, b_down) = basis
     if inside_QBZ:
@@ -280,22 +282,29 @@ def plot_basis_states(basis, ms=5, plot_BZ=True, plot_QBZ=False, invert=False, p
         mask_down = path_down.contains_points(b_down)
         b_down = b_down[mask_down]
 
-    ax.plot(b_down[:,0], b_down[:,1], marker='o', color='b', ls='', ms=ms)
-    ax.plot(b_up[:,0], b_up[:,1], marker='x', color='r', ls='', ms=ms)
+    ax.plot(b_up[:,0], b_up[:,1], marker='o', color='b', ls='', ms=ms)
+    if not exclude_down:
+        ax.plot(b_down[:,0], b_down[:,1], marker='x', color='r', ls='', ms=ms)
     ax.set_aspect('equal')
     ax.set_xticks([])
     ax.set_yticks([])
     if plot_BZ:
         ax.add_patch(decagon(a=0.5))
     elif plot_QBZ:
-        if invert != 'both':
-            patch = Polygon(calc_pentagon(G=1, invert=invert), edgecolor='k', facecolor=(0,0,0,0))
+        if R == 5:
+            if invert != 'both':
+                patch = Polygon(calc_pentagon(G=1, invert=invert), edgecolor='k', facecolor=(0,0,0,0))
+                ax.add_patch(patch)
+            else:
+                patch1 = Polygon(calc_pentagon(G=1, invert=True), edgecolor='r', facecolor=(0,0,0,0))
+                patch2 = Polygon(calc_pentagon(G=1, invert=False), edgecolor='b', facecolor=(0,0,0,0))
+                ax.add_patch(patch1)
+                ax.add_patch(patch2)
+        elif R == 8:
+            phi = np.pi * np.arange(0.5, 8.6, 1) / 4
+            xy = np.column_stack((np.cos(phi), np.sin(phi))) * 0.5 / np.cos(np.pi/8)
+            patch = Polygon(xy=xy, closed=True, edgecolor='k', facecolor=(0,0,0,0))
             ax.add_patch(patch)
-        else:
-            patch1 = Polygon(calc_pentagon(G=1, invert=True), edgecolor='r', facecolor=(0,0,0,0))
-            patch2 = Polygon(calc_pentagon(G=1, invert=False), edgecolor='b', facecolor=(0,0,0,0))
-            ax.add_patch(patch1)
-            ax.add_patch(patch2)
 
     if plot_title:
         ax.set_title(f'Orders = {orders}, Cutoff = {cutoff}, Size = {b_up.shape[0]}x2')
@@ -387,19 +396,21 @@ def adjust_KE(H, q, basis):
     return H
 
 
-def calc_H(q, basis, U0=0.02, N=1, 
-           phi_vals=None, G_vects=G_vects, g_vects=g_vects, V0=0., V=None, 
+def calc_H(q, basis, U0=0.02, N=1, R=5,
+           phi_vals=None, G_vects=G_vects, g_vects=None, V0=0., V=None, 
            idx_map=None, **kwargs):
     (b_up, b_down) = basis
     N_q = b_down.shape[0]
     N_basis = 2*N_q
+    if g_vects is None:
+        g_vects = np.roll(G_vects, -1, axis=0) - G_vects
     H = np.zeros((N_basis,N_basis), dtype=np.complex128)
     if phi_vals is None:
-        phi_vals = calc_phi(N=N)
+        phi_vals = calc_phi(N=N, R=R)
     U = -U0 * expi(-phi_vals)
     Uc = np.conjugate(U)
     if V is None:
-        V = V0 * np.ones(5)
+        V = V0 * np.ones(R)
     Vc = np.conjugate(V)
     if idx_map is None:
         for i in range(N_q):
@@ -425,21 +436,21 @@ def calc_H(q, basis, U0=0.02, N=1,
                 idxs = np.where(np.isclose(-g_vects, dq, atol=0.001).all(axis=1))[0]
                 if idxs.size == 1:
                     l = idxs[0]
-                    H[j,i] = V[l]
-                    H[i,j] = Vc[l]
+                    H[j,i] += V[l]
+                    H[i,j] += Vc[l]
                 idxs = np.where(np.isclose(g_vects, dq, atol=0.001).all(axis=1))[0]
                 if idxs.size == 1:
                     l = idxs[0]
-                    H[j,i] = Vc[l]
-                    H[i,j] = V[l]
+                    H[j,i] += Vc[l]
+                    H[i,j] += V[l]
             # Spin-flip couplings
             for j in range(N_q):
                 dq = b_down[i] - b_up[j]
                 idxs = np.where(np.isclose(-G_vects, dq, atol=0.001).all(axis=1))[0]
                 if idxs.size == 1:
                     l = idxs[0]
-                    H[j,i+N_q] = U[l]
-                    H[i+N_q,j] = Uc[l]
+                    H[j,i+N_q] += U[l]
+                    H[i+N_q,j] += Uc[l]
     else:
         for i in range(N_q):
             # Kinetic energy
@@ -499,11 +510,11 @@ def calc_H(q, basis, U0=0.02, N=1,
 #     return E_vals
 
 
-def calc_BS_point(q=None, return_evects=False, sparse=False, num_evals=20, 
+def calc_BS_point(q=None, return_evects=False, num_evals=None, 
                   H=None, **kwargs):
     if H is None:
         H = calc_H(q, **kwargs)
-    if sparse:
+    if num_evals is not None:
         evals, evects = sp.sparse.linalg.eigsh(H, k=num_evals, which='SA')
         sorted_indices = np.argsort(evals)
         evals = evals[sorted_indices]
@@ -571,6 +582,7 @@ def calc_BS_surface(qx, qy, basis, return_evects=False, num_evals=None, **kwargs
             else:
                 E_vals[:,i,j] = calc_BS_point(H=H, basis=basis, 
                                               return_evects=return_evects,
+                                              num_evals=num_evals,
                                               **kwargs)
     print(f'Evaluating q value {i*ny+j+1} out of {nx*ny}... Done')
     if return_evects:
@@ -757,8 +769,44 @@ def calc_max_idx(E_vals, dos_vals, E_bins, E_min, E_max, dE=0.01):
     return max_idx
 
 
+def select_physical_bands(filename=None, qx_vals=None, qy_vals=None, E_vals=None, basis=None, idx_up=0, 
+                          idx_down=None, save=False, save_filename=None):
+    if filename is not None:
+        data = np.load(filename, allow_pickle=True)
+        if 'q_vals' in data.files:
+            q_vals = data['q_vals']
+            qx_vals = q_vals[:,0]
+            qy_vals = q_vals[:,1]
+        else:
+            qx_vals = data['qx_vals']
+            qy_vals = data['qy_vals']
+        E_vals = data['E_vals']
+        basis = data['basis']
+    (b_up, b_down) = basis
+    selected_E_vals = np.zeros((2, *E_vals.shape[1:]))
+    if idx_down is None:
+        idx_down = b_up.shape[0]
+    for i, qx in enumerate(qx_vals):
+        for j, qy in enumerate(qy_vals):
+            # calculate and order KE values
+            q = np.array([qx, qy])
+            K = np.concatenate((np.sum((b_up - q)**2, axis=1), np.sum((b_down - q)**2, axis=1)))
+            idxs = np.argsort(K).argsort()
+            # select E_vals with relevant indices
+            selected_E_vals[0,i,j] = E_vals[idxs[idx_up],i,j]
+            selected_E_vals[1,i,j] = E_vals[idxs[idx_down],i,j]
+    if save:
+        save_dict = {k:data[k] for k in data.files}
+        if save_filename is None:
+            save_filename = filename
+        np.savez(save_filename, selected_E_vals=selected_E_vals, **save_dict)
+    else:
+        return selected_E_vals
+
 
 if __name__ == '__main__':
+    f = 'Updated_Geometry/Data/BS_Surface_b1_R8_U20.0_N5_V0.0_.npz'
+    select_physical_bands(filename=f, save=True)
     # orders = 4
     # basis = calc_basis_states(basis=None, orders=orders, cutoff=None)
     # np.savez('Updated Geometry/Data/Basis_o4.npz', basis=basis, orders=orders, cutoff=None)
@@ -766,16 +814,19 @@ if __name__ == '__main__':
     # f = 'Updated Geometry/Data/Basis_o6.npz'
     # data = np.load(f)
     # b_full = data['basis']
-    orders = 1
-    cutoff = None
-    basis = calc_basis_states(basis=None, orders=orders, cutoff=cutoff)
-    # basis = calc_basis_states(basis=None, orders=orders, cutoff=cutoff)
-    # basis = calc_basis_states_alt(basis=None, orders=orders, cutoff=cutoff)
+    # l = np.arange(8)
+    # G_vects = np.column_stack((np.cos(np.pi*l/4), np.sin(np.pi*l/4)))
+    # g_vects = np.roll(G_vects, -1, axis=0) - G_vects
+    # orders = 1
+    # cutoff = None
+    # basis = calc_basis_states(basis=None, orders=orders, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects)
+    # # basis = calc_basis_states(basis=None, orders=orders, cutoff=cutoff)
+    # # basis = calc_basis_states_alt(basis=None, orders=orders, cutoff=cutoff)
 
-    # print(basis[0].shape[0])
-    # # print(np.sort(np.linalg.norm(basis[0], axis=1)))
-    plot_basis_states(basis=basis, ms=3, orders=orders, cutoff=cutoff, plot_BZ=False,
-                      plot_QBZ=True, invert='both', inside_QBZ=False)
+    # # print(basis[0].shape[0])
+    # # # print(np.sort(np.linalg.norm(basis[0], axis=1)))
+    # plot_basis_states(basis=basis, ms=3, orders=orders, cutoff=cutoff, plot_BZ=False,
+    #                   plot_QBZ=True, invert='both', inside_QBZ=False, R=8, exclude_down=True)
     # points = calc_pentagon()
     # print(points)
 

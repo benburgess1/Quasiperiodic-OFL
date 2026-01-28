@@ -202,12 +202,15 @@ def plot_DoS(filename, plot_title=True, scalefactor=1., xlim=None,
 
 def plot_BS_surface(filename, E_R=1, bands=None, plot_title=True, 
                     title_str=None, q_max=None, q_max_in_title=False,
-                    q_path=None):
+                    q_path=None, plot_selected=False):
     data = np.load(filename)
     qx_vals = data['qx_vals']
     qy_vals = data['qy_vals']
     qxx,qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
-    E_vals = data['E_vals']
+    if plot_selected:
+        E_vals = data['selected_E_vals']
+    else:
+        E_vals = data['E_vals']
     if q_max is not None:
         q2 = qxx**2 + qyy**2
         # print(q2.shape)
@@ -282,7 +285,7 @@ def compare_DoS(filenames, E_scale=0.25, colors=None, labels=None, orders=None,
         if RQBZ:
             calc_new = True
             x = (np.sqrt(5)-1)/(2*orders[i])
-            patch = mpl.patches.Polygon(xy=CBS.calc_pentagon(G=q, x=x, invert=True), 
+            patch = mpl.patches.Polygon(xy=CBS.calc_pentagon(G=1, x=x, invert=True), 
                                             edgecolor='k', facecolor=(0,0,0,0))
             q_path = patch.get_path()
         else:
@@ -302,6 +305,9 @@ def compare_DoS(filenames, E_scale=0.25, colors=None, labels=None, orders=None,
 
 
 if __name__ == '__main__':
+    f = 'Updated_Geometry/Data/BS_Surface_b1_R8_U20.0_N5_V0.0_.npz'
+    plot_BS_surface(f, plot_selected=True)
+
     # f = 'Data/BS_approx_a4_GXMG_U0.2_N3_V0.15.npz'
     # f = 'Data/BS_approx_a3_GXMG_U200.0_N1_V150.0.npz'
     # f = 'Data/BS_approx_a3_GXMG_U200.0_N3_V200.0.npz'
@@ -317,24 +323,24 @@ if __name__ == '__main__':
 
     # # f = 'DoS_approx_a3_U200.0_N3_V150.0_dE0.1.npz'
     # q_path = mpl.path.Path(vertices=CBS.calc_pentagon(G=1., invert=True))
-    f = 'Updated Geometry/Data/RQBZData_o1_U0.0_N3_V0.0_finer.npz'
-    f = 'Updated Geometry/Data/RQBZData_o8_c3.5_U0.2_N3_V0.15_extended.npz'
-    data = np.load(f)
-    q_max = np.max(data['qx_vals'])
-    print(f'q_max = {q_max}')
-    N = data['qx_vals'].size
-    print(f'Size: {N} x {N}')
-    q = 0.14589803
-    N_bands = 202
-    # x = (np.sqrt(5)-1)/(2*1)
-    x = (np.sqrt(5)-1)/(2*np.sqrt(N_bands/2))
-    print(f'RQBZ radius = {x}')
-    patch = mpl.patches.Polygon(xy=CBS.calc_pentagon(G=q, x=x, invert=False), 
-                                        edgecolor='k', facecolor=(0,0,0,0))
-    q_path = patch.get_path()
-    dE = 0.01
-    dk = 2*q_max / (N-1)
-    g = (2*np.pi / dk**2)
+    # f = 'Updated Geometry/Data/RQBZData_o1_U0.0_N3_V0.0_finer.npz'
+    # f = 'Updated Geometry/Data/RQBZData_o8_c3.5_U0.2_N3_V0.15_extended.npz'
+    # data = np.load(f)
+    # q_max = np.max(data['qx_vals'])
+    # print(f'q_max = {q_max}')
+    # N = data['qx_vals'].size
+    # print(f'Size: {N} x {N}')
+    # q = 0.14589803
+    # N_bands = 202
+    # # x = (np.sqrt(5)-1)/(2*1)
+    # x = (np.sqrt(5)-1)/(2*np.sqrt(N_bands/2))
+    # print(f'RQBZ radius = {x}')
+    # patch = mpl.patches.Polygon(xy=CBS.calc_pentagon(G=q, x=x, invert=False), 
+    #                                     edgecolor='k', facecolor=(0,0,0,0))
+    # q_path = patch.get_path()
+    # dE = 0.01
+    # dk = 2*q_max / (N-1)
+    # g = (2*np.pi / dk**2)
     # print(f'Predicted DoS: g = {g}')
     # plot_BS_surface(f, bands=np.arange(1), q_max=None, q_max_in_title=False, q_path=q_path)
     # plot_DoS(f, scalefactor=1., xlim=None, calc_new=True, dE=dE, n_occ=126, plot_E_max=True,
@@ -347,34 +353,34 @@ if __name__ == '__main__':
     # f4 = 'Updated Geometry/Data/RQBZData_o4_U0.02_N3_V0.01.npz'
     # f5 = 'Updated Geometry/Data/RQBZData_o5_c3.5_U0.02_N3_V0.01.npz'
     # f6 = 'Updated Geometry/Data/RQBZData_o6_c3.5_U0.02_N3_V0.01.npz'
-    f7_1 = 'Updated Geometry/Data/RQBZData_o7_c3.5_U0.02_N3_V0.01.npz'
-    f8_1 = 'Updated Geometry/Data/RQBZData_o8_c3.5_U0.02_N3_V0.01.npz'
-    # f9 = 'Updated Geometry/Data/RQBZData_o9_c3.5_U0.02_N3_V0.01.npz'
-    # f2 = 'Updated Geometry/Data/RQBZData_o2_U0.0_N3_V0.0.npz'
-    # f3 = 'Updated Geometry/Data/RQBZData_o3_U0.0_N3_V0.0.npz'
-    f4 = 'Updated Geometry/Data/RQBZData_o4_U0.0_N3_V0.0.npz'
-    f5 = 'Updated Geometry/Data/RQBZData_o5_c3.5_U0.0_N3_V0.0.npz'
-    f5_old = 'Updated Geometry/Data/RQBZData_o5_c3.5_U0.0_N3_V0.0_old.npz'
-    f6 = 'Updated Geometry/Data/RQBZData_o6_c3.5_U0.0_N3_V0.0.npz'
-    f6_old = 'Updated Geometry/Data/RQBZData_o6_c3.5_U0.0_N3_V0.0_old.npz'
-    f7 = 'Updated Geometry/Data/RQBZData_o7_c3.5_U0.0_N3_V0.0.npz'
-    f8 = 'Updated Geometry/Data/RQBZData_o8_c3.5_U0.0_N3_V0.0.npz'
-    f9 = 'Updated Geometry/Data/RQBZData_o9_c3.5_U0.0_N3_V0.0.npz'
+    # f7_1 = 'Updated Geometry/Data/RQBZData_o7_c3.5_U0.02_N3_V0.01.npz'
+    # f8_1 = 'Updated Geometry/Data/RQBZData_o8_c3.5_U0.02_N3_V0.01.npz'
+    # # f9 = 'Updated Geometry/Data/RQBZData_o9_c3.5_U0.02_N3_V0.01.npz'
+    # # f2 = 'Updated Geometry/Data/RQBZData_o2_U0.0_N3_V0.0.npz'
+    # # f3 = 'Updated Geometry/Data/RQBZData_o3_U0.0_N3_V0.0.npz'
+    # f4 = 'Updated Geometry/Data/RQBZData_o4_U0.0_N3_V0.0.npz'
+    # f5 = 'Updated Geometry/Data/RQBZData_o5_c3.5_U0.0_N3_V0.0.npz'
+    # f5_old = 'Updated Geometry/Data/RQBZData_o5_c3.5_U0.0_N3_V0.0_old.npz'
+    # f6 = 'Updated Geometry/Data/RQBZData_o6_c3.5_U0.0_N3_V0.0.npz'
+    # f6_old = 'Updated Geometry/Data/RQBZData_o6_c3.5_U0.0_N3_V0.0_old.npz'
+    # f7 = 'Updated Geometry/Data/RQBZData_o7_c3.5_U0.0_N3_V0.0.npz'
+    # f8 = 'Updated Geometry/Data/RQBZData_o8_c3.5_U0.0_N3_V0.0.npz'
+    # f9 = 'Updated Geometry/Data/RQBZData_o9_c3.5_U0.0_N3_V0.0.npz'
 
-    f2 = 'Updated Geometry/Data/TestData_o2_U0.2_N3_V0.15.npz'
-    f3 = 'Updated Geometry/Data/TestData_o3_U0.2_N3_V0.15.npz'
-    f4 = 'Updated Geometry/Data/TestData_o4_U0.2_N3_V0.15.npz'
-    f5 = 'Updated Geometry/Data/TestData_o5_c3.5_U0.2_N3_V0.15.npz'
-    f6 = 'Updated Geometry/Data/TestData_o6_c3.5_U0.2_N3_V0.15.npz'
-    f7 = 'Updated Geometry/Data/TestData_o7_c3.5_U0.2_N3_V0.15.npz'
-    f8 = 'Updated Geometry/Data/TestData_o8_c3.5_U0.2_N3_V0.15.npz'
-    f9 = 'Updated Geometry/Data/TestData_o9_c3.5_U0.2_N3_V0.15.npz'
-    f10 = 'Updated Geometry/Data/TestData_o10_c3.5_U0.2_N3_V0.15_updated.npz'
+    # f2 = 'Updated Geometry/Data/TestData_o2_U0.2_N3_V0.15.npz'
+    # f3 = 'Updated Geometry/Data/TestData_o3_U0.2_N3_V0.15.npz'
+    # f4 = 'Updated Geometry/Data/TestData_o4_U0.2_N3_V0.15.npz'
+    # f5 = 'Updated Geometry/Data/TestData_o5_c3.5_U0.2_N3_V0.15.npz'
+    # f6 = 'Updated Geometry/Data/TestData_o6_c3.5_U0.2_N3_V0.15.npz'
+    # f7 = 'Updated Geometry/Data/TestData_o7_c3.5_U0.2_N3_V0.15.npz'
+    # f8 = 'Updated Geometry/Data/TestData_o8_c3.5_U0.2_N3_V0.15.npz'
+    # f9 = 'Updated Geometry/Data/TestData_o9_c3.5_U0.2_N3_V0.15.npz'
+    # f10 = 'Updated Geometry/Data/TestData_o10_c3.5_U0.2_N3_V0.15_updated.npz'
 
-    filenames = [f4, f5, f6, f7, f8, f9, f10]
-    orders = [4, 5, 6, 7, 8, 9, 10]
-    filenames = [f7, f8, f9, f10]
-    orders = [7, 8, 9, 10]
+    # filenames = [f4, f5, f6, f7, f8, f9, f10]
+    # orders = [4, 5, 6, 7, 8, 9, 10]
+    # filenames = [f7, f8, f9, f10]
+    # orders = [7, 8, 9, 10]
     # filenames = [f6, f6_old]
     # orders = [6, 6]
     # colors = ['b', 'r']

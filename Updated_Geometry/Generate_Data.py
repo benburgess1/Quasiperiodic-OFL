@@ -15,7 +15,7 @@ print('Calculating basis states... ', end='', flush=True)
 f = 'Data/Basis_o10.npz'
 data = np.load(f)
 b_full = data['basis']
-basis = CBS.calc_basis_states(orders=orders, cutoff=cutoff, basis=b_full) 
+basis = CBS.calc_basis_states(orders=orders, cutoff=cutoff, basis=b_full)
 # basis = CBS.calc_basis_states_alt(orders=orders, cutoff=cutoff, basis=None) 
 # basis = CBS.calc_basis_states(orders=orders, cutoff=cutoff, basis=None) 
 # b_full = CBS.calc_basis_states(orders=orders, cutoff=None)
