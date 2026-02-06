@@ -38,3 +38,9 @@ This folder contains code used for analysing an alternative 'dark state' Hamilto
 
 ### Data
 This contains the data used to produce the figures in the paper as .npz files. Files contain the data displayed on the plots, as well as the parameters of the system or calculation.
+
+### Green_Function
+This folder contains code for calculating the density of states via Green's Function methods. The self-energy is calculated up to a certain order in diagrammatic perturbation theory, in turn enabling the calculation of the Green's Function and density of states.
+- GF_1D.py: code for evaluating Green's functions and density of states for 1D systems.
+- Perturbation_Theory.py: code for evaluating bandstructures and density of states via perturbation theory, for comparison with the Green's Function results.
+- Plotting.py: code for plotting the numerically obtained density of states.
