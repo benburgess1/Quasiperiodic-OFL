@@ -56,9 +56,11 @@ if __name__ == '__main__':
     # f = 'Green_Function/Data/DoS_1D_AA_S4_V10.05_V20.025_GF.npz'
     # f = 'Green_Function/Data/2D/DoS_2D_free_GF_test.npz'
     # f2 = 'Green_Function/Data/2D/DoS_2D_free_theory.npz'
-    f = 'Green_Function/Data/1D/DoS_1D_S2_V0.05_GF_adaptive.npz'
-    f2 = 'Green_Function/Data/1D/DoS_1D_S2_V0.05_theory_normalised.npz'
+    f = 'Green_Function/Data/1D/DoS_1D_S2_V0.02_GF_adaptive_updated.npz'
+    f2 = 'Green_Function/Data/1D/DoS_1D_S2_V0.02_theory_normalised.npz'
+    # f = 'Green_Function/Data/1D/DoS_1D_free_GF_adaptive_updated.npz'
+    # f2 = 'Green_Function/Data/1D/DoS_1D_free_theory_normalised.npz'
     plot_dos(f, ylim=(-0.1,5), plot_title=True, 
-             title_params = {'a':r'$a$', 'b':r'$b$', 'c':r'$c$'},
+             title_params = {'a':r'$a$', 'b':r'$b$', 'kmax':r'$k_{max}$'},
             #  title_params={'L':r'$L$', 'eps':r'$\epsilon$'},
              plot_theory=True, filename_theory=f2)

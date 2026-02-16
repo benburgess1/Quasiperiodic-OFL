@@ -73,7 +73,7 @@ if __name__ == '__main__':
     # plt.show()
     # f = 'Green_Function/Data/2D/DoS_2D_free_theory.npz'
     # calc_dos_free_2D(E_vals=np.linspace(0, 0.5, 250), L=5e3, save=True, save_filename=f)
-    f = 'Green_Function/Data/1D/DoS_1D_S2_V0.05_theory_normalised.npz'
+    f = 'Green_Function/Data/1D/DoS_1D_S2_V0.02_theory_normalised.npz'
     # calc_dos_free_1D(E_vals=np.linspace(0, 1, 250), L=5e3, L_normalise=True, save=True, save_filename=f)
-    calc_dos_1D(k_vals=k_vals, L=1e5, L_normalise=True, save=True, save_filename=f, V=0.05)
+    calc_dos_1D(k_vals=k_vals, L=1e5, L_normalise=True, save=True, save_filename=f, V=0.02)
 
