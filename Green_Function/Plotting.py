@@ -52,8 +52,13 @@ def make_title_str(title_params, data, base_str='', dp=5):
 
 if __name__ == '__main__':
     # f = 'Green_Function/Data/DoS_1D_S4_V0.15_GF.npz'
-    f2 = 'Green_Function/Data/DoS_1D_S2_V0.15_theory_extended.npz'
-    f = 'Green_Function/Data/DoS_1D_AA_S4_V10.05_V20.025_GF.npz'
-    plot_dos(f, ylim=(-0.1e5, 2.5e5), plot_title=True, 
-             title_params={'V1':r'$|V_1|$', 'V2':r'$|V_2|$', 'L':r'$L$', 'eps':r'$\epsilon$'},
-             plot_theory=False, filename_theory=f2)
+    # f2 = 'Green_Function/Data/DoS_1D_S2_V0.15_theory_extended.npz'
+    # f = 'Green_Function/Data/DoS_1D_AA_S4_V10.05_V20.025_GF.npz'
+    # f = 'Green_Function/Data/2D/DoS_2D_free_GF_test.npz'
+    # f2 = 'Green_Function/Data/2D/DoS_2D_free_theory.npz'
+    f = 'Green_Function/Data/1D/DoS_1D_S2_V0.05_GF_adaptive.npz'
+    f2 = 'Green_Function/Data/1D/DoS_1D_S2_V0.05_theory_normalised.npz'
+    plot_dos(f, ylim=(-0.1,5), plot_title=True, 
+             title_params = {'a':r'$a$', 'b':r'$b$', 'c':r'$c$'},
+            #  title_params={'L':r'$L$', 'eps':r'$\epsilon$'},
+             plot_theory=True, filename_theory=f2)
