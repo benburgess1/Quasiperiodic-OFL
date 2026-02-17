@@ -81,12 +81,11 @@ def adaptive_params(E, a=0.1, b=1, eps_min=1e-5, L_max=1e5, print_warnings=True,
     return eps, L
         
 
-def generate_k_vals(E, L, kmax=None, n=2, c=0.1, G=1, **kwargs):
+def generate_k_vals(L, kmax=None, n=2, c=0.1, G=1, **kwargs):
     dk = 2 * np.pi / L
     if kmax is None:
         kmax = (n/2 + c) * G
     k_vals = np.arange(-kmax, kmax, dk)
-    print(f'E = {E}')
     return k_vals
 
 
@@ -94,7 +93,7 @@ def calc_dos_adaptive(E_vals, save=False, save_filename='Data.npz', **kwargs):
     dos_vals = np.zeros_like(E_vals)
     for i, E in tqdm(enumerate(E_vals)):
         eps, L = adaptive_params(E, **kwargs)
-        k_vals = generate_k_vals(E, L, **kwargs)
+        k_vals = generate_k_vals(L, **kwargs)
         print(f'eps = {eps}, L = {L}')
         print(f'N_k = {k_vals.size}')
         G_vals = G(k_vals, E, eps=eps, **kwargs)
