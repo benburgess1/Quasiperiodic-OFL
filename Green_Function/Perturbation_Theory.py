@@ -63,19 +63,58 @@ def calc_dos_free_2D(E_vals, L=1e5, L_normalise=False, save=True, save_filename=
         np.savez(save_filename, E_vals=E_vals, dos_vals=dos_vals, L=L, **kwargs)
     else:
         return dos_vals
+    
+
+def H_4(k, G=1, V=0.1, **kwargs):
+    H = np.zeros((5,5))
+    v = [-2, -1, 0, 1, 2]
+    for i in range(5):
+        H[i,i] = (k + v[i]*G)**2
+        if i < 4:
+            H[i,i+1] = V
+        if i > 0:
+            H[i,i-1] = V
+    return H
+
+
+def calc_dos_4(k_vals, eps=1e-6, save_filename='Data.npz', **kwargs):
+    E_vals = np.zeros_like(k_vals)
+    for i,k in enumerate(k_vals):
+        H = H_4(k, **kwargs)
+        evals, evects = np.linalg.eigh(H)
+        if 0 <= k <= 0.5:
+            idx = 0
+        elif 0.5 <= k <= 1:
+            idx = 1
+        elif k >= 1:
+            idx = 2
+        E_vals[i] = evals[idx]
+
+    dos_vals = np.zeros(E_vals.size - 2)
+    dk = k_vals[1] - k_vals[0]
+    for i in range(1, E_vals.size-1):
+        dEdk = (E_vals[i+1] - E_vals[i-1]) / (2*dk)
+        dos_vals[i-1] = 1/(np.abs(dEdk) + eps) / np.pi
+    
+    np.savez(save_filename, E_vals=E_vals[1:-1], dos_vals=dos_vals, k_vals=k_vals, eps=eps, **kwargs)
+    return E_vals[1:-1], dos_vals
+
 
 
 
 
 if __name__ == '__main__':
-    k_vals = np.linspace(0, 1.5, 1000)
+    # k_vals = np.linspace(0, 1.5, 1000)
     # E_vals = np.array([E_1D(k, V=0.0) for k in k_vals])
     # fig, ax = plt.subplots()
     # ax.plot(k_vals, E_vals, ls='', color='b', marker='.', ms=2)
     # plt.show()
-    f = 'Green_Function/Data/2D/DoS_2D_free_theory.npz'
-    calc_dos_free_2D(E_vals=np.linspace(0, 0.5, 250), L=5e3, save=True, save_filename=f, L_normalise=True)
+    # f = 'Green_Function/Data/2D/DoS_2D_free_theory.npz'
+    # calc_dos_free_2D(E_vals=np.linspace(0, 0.5, 250), L=5e3, save=True, save_filename=f, L_normalise=True)
     # f = 'Green_Function/Data/1D/DoS_1D_S2_V0.02_theory_normalised.npz'
     # calc_dos_free_1D(E_vals=np.linspace(0, 1, 250), L=5e3, L_normalise=True, save=True, save_filename=f)
     # calc_dos_1D(k_vals=k_vals, L=1e5, L_normalise=True, save=True, save_filename=f, V=0.02)
+    k_vals = np.linspace(0, 1.5, 10000)
+    f = 'Green_Function/Data/1D/Dos_1D_S4_V0.01_theory.npz'
+    calc_dos_4(k_vals=k_vals, V=0.01, save_filename=f)
 

@@ -23,7 +23,16 @@ def Sigma_4(k, E, V=0.05, G=1, **kwargs):
     S2 = Sigma_2(k, E, V=V, G=G, **kwargs)
     S4 = np.abs(V)**4 * (G0(k-G, E, eps=0)**2 * G0(k-2*G, E, eps=0)
                          + G0(k+G, E, eps=0)**2 * G0(k+2*G, E, eps=0))
+    # S4 += np.abs(V)**4 * (G0(k-G, E, eps=0)**2 * G0(k, E, eps=0)
+    #                       + G0(k+G, E, eps=0)**2 * G0(k, E, eps=0))
     return S2 + S4
+
+
+def Sigma_6(k, E, V=0.05, G=1, **kwargs):
+    S4 = Sigma_4(k, E, V=V, G=G, **kwargs)
+    S6 = np.abs(V)**6 * (G0(k-G, E, eps=0)**2 * G0(k-2*G, E, eps=0)**2 * G0(k-3*G, E, eps=0)
+                         + G0(k+G, E, eps=0)**2 * G0(k+2*G, E, eps=0)**2 * G0(k+3*G, E, eps=0))
+    return S4 + S6
 
 
 def calc_dos(E_vals, k_vals, save=False, save_filename='Data.npz', **kwargs):
@@ -62,6 +71,7 @@ def Sigma_4_AA(k, E, V1=0.05, V2=0.025, G1=1, G2=1/np.sqrt(2), **kwargs):
 
 
 def adaptive_params(E, a=0.1, b=1, eps_min=1e-5, L_max=1e5, print_warnings=True, **kwargs):
+    E = np.abs(E)
     # Choose epsilon based on upper bound set by E
     eps = a * E
     if eps < eps_min:
@@ -106,7 +116,7 @@ def calc_dos_adaptive(E_vals, save=False, save_filename='Data.npz', **kwargs):
 
 
 if __name__ == '__main__':
-    E_vals = np.linspace(0, 1, 200)
+    E_vals = np.linspace(-0.1, 1.1, 1000)
     kmax = 1.5
     L = 1e5
     dk = 2*np.pi / L
@@ -115,8 +125,10 @@ if __name__ == '__main__':
     # f = 'Green_Function/Data/DoS_1D_AA_S4_V10.05_V20.025_GF.npz'
     # calc_dos(E_vals, k_vals, Sigma_func=Sigma_4_AA, L=L, V1=0.05, V2=0.025, eps=1e-4, save=True, save_filename=f)
     # f = 'Green_Function/Data/1D/DoS_1D_free_GF_adaptive_updated.npz'
-    f = 'Green_Function/Data/1D/DoS_1D_S2_V0.02_GF_adaptive_updated.npz'
-    calc_dos_adaptive(E_vals=E_vals, Sigma_func=Sigma_2, save=True, save_filename=f, a=0.01, b=10, c=0.1, n=2, V=0.02, kmax=1.1)
+    # f = 'Green_Function/Data/1D/DoS_1D_S2_V0.1_GF_adaptive_updated.npz'
+    f = 'Green_Function/Data/1D/DoS_1D_S6_V0.05_GF_adaptive.npz'
+    calc_dos_adaptive(E_vals=E_vals, Sigma_func=Sigma_6, save=True, save_filename=f, a=0.001, b=10, c=0.1, n=2, 
+                      V=0.05, kmax=1.1, L_max=2e5)
 
     
 
