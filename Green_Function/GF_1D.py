@@ -15,23 +15,23 @@ def G(k, E, Sigma_func=None, **kwargs):
     return G0(k, E - Sigma, **kwargs)
 
 
-def Sigma_2(k, E, V=0.05, G=1, **kwargs):
-    return np.abs(V)**2 * (G0(k-G, E, eps=0) + G0(k+G, E, eps=0))
+def Sigma_2(k, E, V=0.05, q=1, **kwargs):
+    return np.abs(V)**2 * (G0(k-q, E, eps=0) + G0(k+q, E, eps=0))
 
 
-def Sigma_4(k, E, V=0.05, G=1, **kwargs):
-    S2 = Sigma_2(k, E, V=V, G=G, **kwargs)
-    S4 = np.abs(V)**4 * (G0(k-G, E, eps=0)**2 * G0(k-2*G, E, eps=0)
-                         + G0(k+G, E, eps=0)**2 * G0(k+2*G, E, eps=0))
+def Sigma_4(k, E, V=0.05, q=1, **kwargs):
+    S2 = Sigma_2(k, E, V=V, q=q, **kwargs)
+    S4 = np.abs(V)**4 * (G0(k-q, E, eps=0)**2 * G0(k-2*q, E, eps=0)
+                         + G0(k+q, E, eps=0)**2 * G0(k+2*q, E, eps=0))
     # S4 += np.abs(V)**4 * (G0(k-G, E, eps=0)**2 * G0(k, E, eps=0)
     #                       + G0(k+G, E, eps=0)**2 * G0(k, E, eps=0))
     return S2 + S4
 
 
-def Sigma_6(k, E, V=0.05, G=1, **kwargs):
-    S4 = Sigma_4(k, E, V=V, G=G, **kwargs)
-    S6 = np.abs(V)**6 * (G0(k-G, E, eps=0)**2 * G0(k-2*G, E, eps=0)**2 * G0(k-3*G, E, eps=0)
-                         + G0(k+G, E, eps=0)**2 * G0(k+2*G, E, eps=0)**2 * G0(k+3*G, E, eps=0))
+def Sigma_6(k, E, V=0.05, q=1, **kwargs):
+    S4 = Sigma_4(k, E, V=V, q=q, **kwargs)
+    S6 = np.abs(V)**6 * (G0(k-q, E, eps=0)**2 * G0(k-2*q, E, eps=0)**2 * G0(k-3*q, E, eps=0)
+                         + G0(k+q, E, eps=0)**2 * G0(k+2*q, E, eps=0)**2 * G0(k+3*q, E, eps=0))
     return S4 + S6
 
 
@@ -43,30 +43,30 @@ def calc_dos(E_vals, k_vals, save=False, save_filename='Data.npz', **kwargs):
     return dos_vals
 
 
-def Sigma_2_AA(k, E, V1=0.05, V2=0.025, G1=1, G2=1/np.sqrt(2), **kwargs):
-    S2_1 = np.abs(V1)**2 * (G0(k-G1, E, eps=0) + G0(k+G1, E, eps=0))
-    S2_2 = np.abs(V2)**2 * (G0(k-G2, E, eps=0) + G0(k+G2, E, eps=0))
+def Sigma_2_AA(k, E, V1=0.05, V2=0.025, q1=1, q2=1/np.sqrt(2), **kwargs):
+    S2_1 = np.abs(V1)**2 * (G0(k-q1, E, eps=0) + G0(k+q1, E, eps=0))
+    S2_2 = np.abs(V2)**2 * (G0(k-q2, E, eps=0) + G0(k+q2, E, eps=0))
     return S2_1 + S2_2
 
 
-def Sigma_4_AA(k, E, V1=0.05, V2=0.025, G1=1, G2=1/np.sqrt(2), **kwargs):
+def Sigma_4_AA(k, E, V1=0.05, V2=0.025, q1=1, q2=1/np.sqrt(2), **kwargs):
     # Second order terms
-    S2 = Sigma_2_AA(k, E, V1=V1, V2=V2, G1=G1, G2=G2, **kwargs)
+    S2 = Sigma_2_AA(k, E, V1=V1, V2=V2, q1=q1, q2=q2, **kwargs)
     S4 = 0
     # Cross-coupling terms
     for s1 in [-1, 1]:
         for s2 in [-1, 1]:
             S4 += (np.abs(V1)**2 * np.abs(V2)**2 
-                   * G0(k+s1*G1, E, eps=0)**2 * G0(k+s1*G1+s2*G2, E, eps=0))
+                   * G0(k+s1*q1, E, eps=0)**2 * G0(k+s1*q1+s2*q2, E, eps=0))
             S4 += (np.abs(V1)**2 * np.abs(V2)**2 
-                   * G0(k+s1*G2, E, eps=0)**2 * G0(k+s1*G2+s2*G1, E, eps=0))
+                   * G0(k+s1*q2, E, eps=0)**2 * G0(k+s1*q2+s2*q1, E, eps=0))
             S4 += (2 * np.abs(V1)**2 * np.abs(V2)**2 
-                   * G0(k+s1*G1, E, eps=0) * G0(k+s1*G1+s2*G2, E, eps=0) * G0(k+s2*G2, E, eps=0))
+                   * G0(k+s1*q1, E, eps=0) * G0(k+s1*q1+s2*q2, E, eps=0) * G0(k+s2*q2, E, eps=0))
     # 2G coupling terms
-    S4 += np.abs(V1)**4 * (G0(k-G1, E, eps=0)**2 * G0(k-2*G1, E, eps=0)
-                         + G0(k+G1, E, eps=0)**2 * G0(k+2*G1, E, eps=0))
-    S4 += np.abs(V2)**4 * (G0(k-G2, E, eps=0)**2 * G0(k-2*G2, E, eps=0)
-                         + G0(k+G2, E, eps=0)**2 * G0(k+2*G2, E, eps=0))
+    S4 += np.abs(V1)**4 * (G0(k-q1, E, eps=0)**2 * G0(k-2*q1, E, eps=0)
+                         + G0(k+q1, E, eps=0)**2 * G0(k+2*q1, E, eps=0))
+    S4 += np.abs(V2)**4 * (G0(k-q2, E, eps=0)**2 * G0(k-2*q2, E, eps=0)
+                         + G0(k+q2, E, eps=0)**2 * G0(k+2*q2, E, eps=0))
     return S2 + S4
 
 
@@ -91,10 +91,10 @@ def adaptive_params(E, a=0.1, b=1, eps_min=1e-5, L_max=1e5, print_warnings=True,
     return eps, L
         
 
-def generate_k_vals(L, kmax=None, n=2, c=0.1, G=1, **kwargs):
+def generate_k_vals(L, kmax=None, n=2, c=0.1, q=1, **kwargs):
     dk = 2 * np.pi / L
     if kmax is None:
-        kmax = (n/2 + c) * G
+        kmax = (n/2 + c) * q
     k_vals = np.arange(-kmax, kmax, dk)
     return k_vals
 
@@ -126,9 +126,9 @@ if __name__ == '__main__':
     # calc_dos(E_vals, k_vals, Sigma_func=Sigma_4_AA, L=L, V1=0.05, V2=0.025, eps=1e-4, save=True, save_filename=f)
     # f = 'Green_Function/Data/1D/DoS_1D_free_GF_adaptive_updated.npz'
     # f = 'Green_Function/Data/1D/DoS_1D_S2_V0.1_GF_adaptive_updated.npz'
-    f = 'Green_Function/Data/1D/DoS_1D_S6_V0.05_GF_adaptive.npz'
-    calc_dos_adaptive(E_vals=E_vals, Sigma_func=Sigma_6, save=True, save_filename=f, a=0.001, b=10, c=0.1, n=2, 
-                      V=0.05, kmax=1.1, L_max=2e5)
+    f = 'Green_Function/Data/1D/DoS_1D_S2_V0.01_GF_adaptive.npz'
+    calc_dos_adaptive(E_vals=E_vals, Sigma_func=Sigma_2, save=True, save_filename=f, a=0.001, b=10, c=0.1, n=2, 
+                      V=0.01, kmax=1.1, L_max=2e5)
 
     
 

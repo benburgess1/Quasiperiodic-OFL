@@ -4,7 +4,8 @@ import scipy as sp
 from matplotlib.ticker import ScalarFormatter
 
 
-def plot_dos(filenames, colors=None, labels=None, plot_theory=False, filename_theory='', L=1e5, ylim=None, 
+def plot_dos(filenames, colors=None, labels=None, plot_theory=False, filename_theory='', L=1e5, 
+             ylim=None, xlim=None,
              plot_title=True, title_params={}, plot_legend=True):
     fig, ax = plt.subplots()
     if colors is None:
@@ -35,6 +36,9 @@ def plot_dos(filenames, colors=None, labels=None, plot_theory=False, filename_th
 
     if ylim is not None:
         ax.set_ylim(*ylim)
+    if xlim is not None:
+        ax.set_xlim(*xlim)
+    
     formatter = ScalarFormatter(useOffset=True)
     formatter.set_powerlimits((-3, 3))
     ax.yaxis.set_major_formatter(formatter)
@@ -64,18 +68,22 @@ if __name__ == '__main__':
     # f = 'Green_Function/Data/2D/DoS_2D_free_GF_test.npz'
     # f2 = 'Green_Function/Data/2D/DoS_2D_free_theory.npz'
     # f = 'Green_Function/Data/1D/DoS_1D_S2_V0.1_GF_adaptive_updated.npz'
-    f1 = 'Green_Function/Data/1D/DoS_1D_S2_V0.05_GF_adaptive.npz'
+    f1 = 'Green_Function/Data/1D/DoS_1D_S2_V0.01_GF_adaptive.npz'
     f2 = 'Green_Function/Data/1D/DoS_1D_S4_V0.05_GF_adaptive.npz'
     f3 = 'Green_Function/Data/1D/DoS_1D_S6_V0.05_GF_adaptive.npz'
+    f4 = 'Green_Function/Data/1D/DoS_1D_iterative_n4_V0.05.npz'
     filenames = [f1, f2, f3]
     filenames = [f3]
-    ft = 'Green_Function/Data/1D/Dos_1D_S4_V0.05_theory.npz'
+    filenames = [f1, f4]
+    # ft = 'Green_Function/Data/1D/Dos_1D_S4_V0.05_theory.npz'
+    ft = 'Green_Function/Data/1D/Dos_1D_S2_V0.01_theory_normalised.npz'
     # f2 = 'Green_Function/Data/1D/DoS_1D_S2_V0.02_theory_normalised.npz'
     # f = 'Green_Function/Data/1D/DoS_1D_free_GF_adaptive_updated.npz'
     # f2 = 'Green_Function/Data/1D/DoS_1D_free_theory_normalised.npz'
     plot_dos(filenames=filenames, 
             #  colors=['b','r','cyan'], labels=['S2', 'S4', 'S6'], 
-             ylim=(-0.5,10), plot_title=True, 
+            colors = ['b', 'cyan'], labels=['Self-energy', 'Iterative'],
+             ylim=(-0.5,10), xlim=(-0.1,1), plot_title=True, 
             #  title_params = {'a':r'$a$', 'b':r'$b$', 'kmax':r'$k_{max}$'},
             #  title_params={'L':r'$L$', 'eps':r'$\epsilon$'},
             title_params = {'V':r'$|V|$'},
