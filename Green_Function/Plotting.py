@@ -6,7 +6,8 @@ from matplotlib.ticker import ScalarFormatter
 
 def plot_dos(filenames, colors=None, labels=None, plot_theory=False, filename_theory='', L=1e5, 
              ylim=None, xlim=None,
-             plot_title=True, title_params={}, plot_legend=True):
+             plot_title=True, title_params={}, plot_legend=True,
+             xlab=r'$E/E_R$'):
     fig, ax = plt.subplots()
     if colors is None:
         colors = ['b' for i in range(len(filenames))]
@@ -17,7 +18,7 @@ def plot_dos(filenames, colors=None, labels=None, plot_theory=False, filename_th
         E_vals = data['E_vals']
         dos_vals = data['dos_vals']
         ax.plot(E_vals, dos_vals, color=colors[i], ls='-', marker=None, label=labels[i])
-    ax.set_xlabel(r'$E/E_R$')
+    ax.set_xlabel(xlab)
     ax.set_ylabel(r'$\rho$ (arb.)')
     if plot_theory:
         # def sqrt_fit(x, A):
@@ -80,11 +81,20 @@ if __name__ == '__main__':
     # f2 = 'Green_Function/Data/1D/DoS_1D_S2_V0.02_theory_normalised.npz'
     # f = 'Green_Function/Data/1D/DoS_1D_free_GF_adaptive_updated.npz'
     # f2 = 'Green_Function/Data/1D/DoS_1D_free_theory_normalised.npz'
+    # plot_dos(filenames=filenames, 
+    #         #  colors=['b','r','cyan'], labels=['S2', 'S4', 'S6'], 
+    #         colors = ['b', 'cyan'], labels=['Self-energy', 'Iterative'],
+    #          ylim=(-0.5,10), xlim=(-0.1,1), plot_title=True, 
+    #         #  title_params = {'a':r'$a$', 'b':r'$b$', 'kmax':r'$k_{max}$'},
+    #         #  title_params={'L':r'$L$', 'eps':r'$\epsilon$'},
+    #         title_params = {'V':r'$|V|$'},
+    #          plot_theory=True, filename_theory=ft)
+    f1 = 'Green_Function/Data/1D/TB/DoS_1D_TB_t1_GF.npz'
+    filenames = [f1]
+    ft = 'Green_Function/Data/1D/TB/DoS_1D_t1_theory.npz'
     plot_dos(filenames=filenames, 
-            #  colors=['b','r','cyan'], labels=['S2', 'S4', 'S6'], 
-            colors = ['b', 'cyan'], labels=['Self-energy', 'Iterative'],
-             ylim=(-0.5,10), xlim=(-0.1,1), plot_title=True, 
-            #  title_params = {'a':r'$a$', 'b':r'$b$', 'kmax':r'$k_{max}$'},
-            #  title_params={'L':r'$L$', 'eps':r'$\epsilon$'},
-            title_params = {'V':r'$|V|$'},
+             colors = ['b'], labels=['GF'],
+             ylim=(-0.1,3), xlim=None, plot_title=True, 
+             title_params = {'t':r'$t$', 'a':r'$a$'},
+             xlab=r'$E$ / $t$',
              plot_theory=True, filename_theory=ft)
