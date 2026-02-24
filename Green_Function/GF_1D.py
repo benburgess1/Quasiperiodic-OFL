@@ -3,8 +3,16 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-def G0(k, E, eps=1e-4, **kwargs):
-    return 1 / (E - k**2 + 1j*eps)
+def E_free(k, **kwargs):
+    return k**2
+
+
+def E_tb(k, t=1, a=1, **kwargs):
+    return -2*t*np.cos(k*a)
+
+
+def G0(k, E, E0=E_free, eps=1e-4, **kwargs):
+    return 1 / (E - E0(k, **kwargs) + 1j*eps)
 
 
 def G(k, E, Sigma_func=None, **kwargs):
@@ -70,16 +78,16 @@ def Sigma_4_2Component(k, E, V1=0.05, V2=0.025, q1=1, q2=1/np.sqrt(2), **kwargs)
     return S2 + S4
 
 
-def adaptive_params(E, a=0.1, b=1, eps_min=1e-5, L_max=1e5, print_warnings=True, **kwargs):
+def adaptive_params(E, A=0.1, B=1, eps_min=1e-5, L_max=1e5, print_warnings=True, **kwargs):
     E = np.abs(E)
     # Choose epsilon based on upper bound set by E
-    eps = a * E
+    eps = A * E
     if eps < eps_min:
         if print_warnings:
             print(f'\nWarning: eps = {eps:.3g} < eps_min = {eps_min:.3g}. Setting eps = eps_min.')
         eps = eps_min
     # Choose L based on lower bound set by E and epsilon
-    L = b * 4 * np.pi * np.sqrt(E) / eps
+    L = B * 4 * np.pi * np.sqrt(E) / eps
     if L > L_max:
         if print_warnings:
             print(f'Warning: L = {L:.3g} > L_max = {L_max:.3g}. Setting L = L_max.\n')
@@ -91,10 +99,10 @@ def adaptive_params(E, a=0.1, b=1, eps_min=1e-5, L_max=1e5, print_warnings=True,
     return eps, L
         
 
-def generate_k_vals(L, kmax=None, n=2, c=0.1, q=1, **kwargs):
+def generate_k_vals(L, kmax=None, n=2, C=0.1, q=1, **kwargs):
     dk = 2 * np.pi / L
     if kmax is None:
-        kmax = (n/2 + c) * q
+        kmax = (n/2 + C) * q
     k_vals = np.arange(-kmax, kmax, dk)
     return k_vals
 
@@ -127,7 +135,7 @@ if __name__ == '__main__':
     # f = 'Green_Function/Data/1D/DoS_1D_free_GF_adaptive_updated.npz'
     # f = 'Green_Function/Data/1D/DoS_1D_S2_V0.1_GF_adaptive_updated.npz'
     f = 'Green_Function/Data/1D/DoS_1D_S2_V0.01_GF_adaptive.npz'
-    calc_dos_adaptive(E_vals=E_vals, Sigma_func=Sigma_2, save=True, save_filename=f, a=0.001, b=10, c=0.1, n=2, 
+    calc_dos_adaptive(E_vals=E_vals, Sigma_func=Sigma_2, save=True, save_filename=f, A=0.001, B=10, C=0.1, n=2, 
                       V=0.01, kmax=1.1, L_max=2e5)
 
     
