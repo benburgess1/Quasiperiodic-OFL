@@ -43,15 +43,15 @@ def calc_dos(E_vals, k_vals, save=False, save_filename='Data.npz', **kwargs):
     return dos_vals
 
 
-def Sigma_2_AA(k, E, V1=0.05, V2=0.025, q1=1, q2=1/np.sqrt(2), **kwargs):
+def Sigma_2_2Component(k, E, V1=0.05, V2=0.025, q1=1, q2=1/np.sqrt(2), **kwargs):
     S2_1 = np.abs(V1)**2 * (G0(k-q1, E, eps=0) + G0(k+q1, E, eps=0))
     S2_2 = np.abs(V2)**2 * (G0(k-q2, E, eps=0) + G0(k+q2, E, eps=0))
     return S2_1 + S2_2
 
 
-def Sigma_4_AA(k, E, V1=0.05, V2=0.025, q1=1, q2=1/np.sqrt(2), **kwargs):
+def Sigma_4_2Component(k, E, V1=0.05, V2=0.025, q1=1, q2=1/np.sqrt(2), **kwargs):
     # Second order terms
-    S2 = Sigma_2_AA(k, E, V1=V1, V2=V2, q1=q1, q2=q2, **kwargs)
+    S2 = Sigma_2_2Component(k, E, V1=V1, V2=V2, q1=q1, q2=q2, **kwargs)
     S4 = 0
     # Cross-coupling terms
     for s1 in [-1, 1]:
