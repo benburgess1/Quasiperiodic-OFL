@@ -213,8 +213,117 @@ def compare_DoS(filenames, colors=None, linestyles=None, legend_params={},
     plt.show()
 
 
+def plot_spectral_function(
+    filename: str,
+    calc_new: bool = False,
+    w_vals: np.ndarray = None,
+    sigma: float = None,
+    sym_points: list[tuple] = None,         # e.g. [(k_index, 'Γ'), (k_index, 'M'), ...]
+    cmap: str = 'viridis',
+    vmin: float = None,
+    vmax: float = None,
+    ax: plt.Axes = None,
+    figsize: tuple = (6, 5),
+    plot_planewave: bool = False,
+    filename_planewave: str = None,
+    plot_title = True,
+    title_params = {}
+) -> plt.Axes:
+    """
+    Plot the spectral function A(k, w) loaded from a .npz file.
+
+    The .npz file should contain:
+        k_vals:   shape (N_k, 2)
+        evals_k:  shape (N_k, N_bands)
+        weights_k: shape (N_k, N_bands)
+    """
+    data = np.load(filename)
+    k_vals    = data['k_vals']
+    evals_k   = data['evals_k']
+    weights_k = data['weights_k']
+    
+    if calc_new:
+        A = ABS.calc_spectral_function(evals_k, weights_k, w_vals, sigma)
+    else:
+        A = data['A']
+        w_vals = data['w_vals']
+        sigma = data['sigma']
+
+
+    # dk = np.diff(k_vals, axis=0)
+    # k_dist = np.concatenate([[0], np.cumsum(np.linalg.norm(dk, axis=1))])
+    k_dist = np.arange(k_vals.shape[0])
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    mesh = ax.pcolormesh(k_dist, w_vals, A.T, cmap=cmap, vmin=vmin, vmax=vmax, shading='auto')
+
+    cbar = plt.colorbar(mesh, ax=ax)
+    cbar.set_ticks([0])
+    cbar.set_ticklabels(['0'])
+    cbar.set_label(r'$A(k, \omega)$ (arb.)')
+
+    if sym_points is not None:
+        tick_positions, tick_labels = [], []
+        for i_k, label in sym_points:
+            x = k_dist[i_k]
+            ax.axvline(x, color='white', linewidth=0.8, linestyle='--', alpha=0.7, zorder=3)
+            tick_positions.append(x)
+            tick_labels.append(label)
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(tick_labels)
+    else:
+        ax.set_xticks([])
+
+    if plot_planewave:
+        data_pw = np.load(filename_planewave)
+        evals = data_pw['evals']
+        ax.plot(k_dist, evals, color='r', ls='-', marker=None)
+
+
+    ax.set_xlim(k_dist[0], k_dist[-1])
+    ax.set_ylim(w_vals[0], w_vals[-1])
+    ax.set_ylabel(r'$\omega$')
+    ax.set_xlabel(r'$k$')
+
+    if plot_title:
+        title_str = make_title_str(title_params, data, base_str=r'$A(k, \omega)$', dp=5)
+        ax.set_title(title_str)
+
+    plt.show()
+
+    return ax
+
+def make_title_str(title_params, data, base_str='', dp=5):
+    for k, v in title_params.items():
+        val = data[k]
+        if len(base_str) > 0:
+            base_str += ', '
+        base_str += v + r'$=$' + f'{val:.{dp}g}'
+    return base_str
+
+
 
 if __name__ == '__main__':
+    f = 'Approximant/Data/8Fold/SpectralFunction/Data_GMKG_R8_a7_c2.5_U0.03_N5_V0.0.npz'
+    U = 0.03
+    V = 0.00
+    # f = f'Updated_Geometry/Data/SpectralFunction_GMKG_O3_U{U}_V{V:.3g}_W0.005_N5_R8.npz'
+    # data = np.load(f)
+    # evals_k = data['evals_k']
+    # print(evals_k.shape)
+    f2 = f'Updated_Geometry/Data/QBZ_BS_GMKG_U{U}_V{V:.3g}_N5_R8.npz'
+    # w_vals = np.linspace(0.24, 0.26, 1000)
+    w_vals = np.linspace(-0.05, 0.4, 1000)
+    sigma = 0.001
+    plot_spectral_function(f, calc_new=True, w_vals=w_vals, sigma=sigma,
+                        #    sym_points=None,
+                           sym_points=[(0, r'$\Gamma$'), (99, r'$M$'), (198, r'$K$'), (297, r'$\Gamma$')],
+                           plot_planewave=True, filename_planewave=f2,
+                        #    title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$'}
+                           title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'a':r'$N_a$'}
+                           )
     # f = 'Data/BS_approx_a4_GXMG_U0.2_N3_V0.15.npz'
     # f = 'Data/BS_approx_a3_GXMG_U200.0_N1_V150.0.npz'
     # f = 'Data/BS_approx_a3_GXMG_U200.0_N3_V200.0.npz'
@@ -242,13 +351,13 @@ if __name__ == '__main__':
     #              'DarkState/Data/3Fold/Data_R3_c11.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz',
     #              'DarkState/Data/3Fold/Data_R3_c13.5_V1100.0_V00.0_p1-1_p2-1_phi10_phi20.npz']
     # f = 'Data/BS_a2_GXMG_U0.2_N3_V0.2.npz'
-    data = np.load(f)
-    idx = data['max_idx']
-    print(idx)
-    C = data['C']
-    print('C = ', np.round(-np.real(C),2))
-    dE = np.min(data['E_vals'][idx+1,:,:]) - np.max(data['E_vals'][idx,:,:])
-    print('dE = ' + str(np.round(dE,4)))
+    # data = np.load(f)
+    # idx = data['max_idx']
+    # print(idx)
+    # C = data['C']
+    # print('C = ', np.round(-np.real(C),2))
+    # dE = np.min(data['E_vals'][idx+1,:,:]) - np.max(data['E_vals'][idx,:,:])
+    # print('dE = ' + str(np.round(dE,4)))
     # print(np.sum(np.real(C)[:13]))
     # E_vals = data['E_vals']
     # print(np.min(E_vals[14,:,:]) - np.max(E_vals[13,:,:]))
@@ -263,8 +372,8 @@ if __name__ == '__main__':
 
     # # f = 'DoS_approx_a3_U200.0_N3_V150.0_dE0.1.npz'
     # plot_BS_surface(f, bands=np.arange(24))
-    plot_DoS(f, scalefactor=1., xlim=None, calc_new=False, dE=0.01, n_occ=9, plot_E_max=True,
-            chern_in_title=False)
+    # plot_DoS(f, scalefactor=1., xlim=None, calc_new=False, dE=0.01, n_occ=9, plot_E_max=True,
+    #         chern_in_title=False)
     # for i in range(30,50):
     #     print(f'i = {i}')
     #     print(f'C = {np.round(np.sum(C[:i]), 2)}')

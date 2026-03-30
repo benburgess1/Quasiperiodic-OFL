@@ -479,25 +479,38 @@ if __name__ == '__main__':
 
 
     ### Constants, parameters etc.
-    U_mag = 0.05
+    U_mag = 0.03
     l = np.arange(8)
     phi0 = 0
-    N = 7
+    N = 5
     U = -U_mag * np.exp(1j * (phi0 - 2 * np.pi * N * l / 8))
-    V_mag = 0.0001
+    V_mag = 0.00
     Dx = 0.0
     Dy = 0.0
     Dz = 0.0
-    W = 0.00
+    W = 0.0
     # for i in range(U.size):
     #     if i % 2 == 0:
     #         U[i] *= 2.
     #     else:
     #         U[i] *= 0.5
 
-    q_vals = calc_q_GMKG()
+    # q_vals = calc_q_GMKG()
+    q_M = np.array([0.5, 0.])
+    q_K = np.array([0.5, 0.5 * np.tan(np.pi/8)])
+    e1 = (q_K - q_M) / np.linalg.norm(q_K - q_M)
+    k1 = np.array([q_K + (q_M - q_K) * i for i in np.linspace(0, 0.07, 100)])[::-1]
+    k2 = np.array([q_K * i for i in np.linspace(1, 0.94, 100)[1:]])
+    q_vals = np.vstack((k1, k2))
     evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
-    plot_BS_GMKG(evals=evals, U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    filename = f'Updated_Geometry/Data/QBZ_BS_KPoint_U{U_mag:.3g}_V{V_mag:.3g}_N{N}_R8_alt.npz'
+    np.savez(filename, q_vals=q_vals, evals=evals, U=U, U_mag=U_mag, V_mag=V_mag, N=N, R=8, 
+             W=W, Dx=Dx, Dy=Dy, Dz=Dz)
+    # f = 'Updated_Geometry/Data/SpectrumTest.npz'
+    # data = np.load(f)
+    # evals = data['evals'].T
+    # plot_BS_GMKG(evals=evals, U_mag=0.03, V_mag=0)
+    # plot_BS_GMKG(evals=evals, U_mag=U_mag, V_mag=V_mag, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
 
     q_K = np.array([0.5, 0.5*np.tan(np.pi/8)])
     # dq = np.column_stack((np.linspace(-0.01, 0.01, 1000), np.zeros(1000)))
@@ -519,13 +532,13 @@ if __name__ == '__main__':
     # qx_vals = np.linspace(0.5032, 0.5036, 200)
     # qy_vals = np.linspace(0.2081, 0.2085, 200)
 
-    evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    # evals, evects = calc_evects(qx_vals, qy_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
     # plot_evals_surf(evals, qx_vals, qy_vals, 
     #                 title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W})
     n_bands = np.arange(6)
-    curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
-    plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
-              title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W},
-              bands_in_title=False, dp=5)
+    # curv = calc_curv(evects, n_bands=n_bands, NonAb=True)
+    # plot_curv(curv, qx_vals, qy_vals, U_mag=U_mag, V_mag=V_mag, n_bands=n_bands, N=N, Dx=Dx, Dy=Dy, Dz=Dz, W=W,
+    #           title_params={'U':U_mag, 'N':N, 'V':V_mag, 'Dx':Dx, 'Dy':Dy, 'W':W},
+    #           bands_in_title=False, dp=5)
     
 

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.patches import Polygon
 import scipy as sp
+from tqdm import tqdm
 
 
 G0 = 1
@@ -270,6 +271,22 @@ def decagon(a=1, r0=np.array([0,0]), color='k'):
     return dec
 
 
+def octagon(a=1, r0=np.array([0,0]), color='k'):
+    r1 = a * np.array([1,np.tan(np.pi/8)])
+    t = np.pi/5
+    R = np.array([[np.cos(t),-np.sin(t)],
+              [np.sin(t),np.cos(t)]])
+    vertices = np.zeros((8,2))
+    vertices[0,:] = r1
+    for i in range(1,8):
+        vertices[i,:] = R @ vertices[i-1,:]
+
+    vertices += np.outer(np.ones(8),r0)
+
+    dec = Polygon(vertices, edgecolor=color, facecolor=(0,0,0,0))
+    return dec
+
+
 def plot_basis_states(basis, ms=5, plot_BZ=True, plot_QBZ=False, invert=False, plot_title=True, orders=3,
                       cutoff=None, inside_QBZ=False, R=5, exclude_down=False):
     fig,ax = plt.subplots()
@@ -396,9 +413,9 @@ def adjust_KE(H, q, basis):
     return H
 
 
-def calc_H(q, basis, U0=0.02, N=1, R=5,
+def calc_H(q, basis, U0=0.02, N=5, R=8,
            phi_vals=None, G_vects=G_vects, g_vects=None, V0=0., V=None, 
-           idx_map=None, **kwargs):
+           idx_map=None, W=0., **kwargs):
     (b_up, b_down) = basis
     N_q = b_down.shape[0]
     N_basis = 2*N_q
@@ -424,13 +441,13 @@ def calc_H(q, basis, U0=0.02, N=1, R=5,
                 idxs = np.where(np.isclose(-g_vects, dq, atol=0.001).all(axis=1))[0]
                 if idxs.size == 1:
                     l = idxs[0]
-                    H[j+N_q,i+N_q] = -V[l]
-                    H[i+N_q,j+N_q] = -Vc[l]
+                    H[j+N_q,i+N_q] += -V[l]
+                    H[i+N_q,j+N_q] += -Vc[l]
                 idxs = np.where(np.isclose(g_vects, dq, atol=0.001).all(axis=1))[0]
                 if idxs.size == 1:
                     l = idxs[0]
-                    H[j+N_q,i+N_q] = -Vc[l]
-                    H[i+N_q,j+N_q] = -V[l]
+                    H[j+N_q,i+N_q] += -Vc[l]
+                    H[i+N_q,j+N_q] += -V[l]
                 # Up-to-up couplings
                 dq = b_up[i] - b_up[j]
                 idxs = np.where(np.isclose(-g_vects, dq, atol=0.001).all(axis=1))[0]
@@ -451,6 +468,20 @@ def calc_H(q, basis, U0=0.02, N=1, R=5,
                     l = idxs[0]
                     H[j,i+N_q] += U[l]
                     H[i+N_q,j] += Uc[l]
+            # H_W couplings
+            for j in range(N_q):
+                dq = b_up[i] - b_up[j]
+                idxs = np.where(np.isclose(-G_vects, dq, atol=0.001).all(axis=1))[0]
+                if idxs.size == 1:
+                    l = idxs[0]
+                    H[j,i] += W * (-1)**l
+                    H[i,j] += W * (-1)**l
+                dq = b_down[i] - b_down[j]
+                idxs = np.where(np.isclose(-G_vects, dq, atol=0.001).all(axis=1))[0]
+                if idxs.size == 1:
+                    l = idxs[0]
+                    H[j+N_q,i+N_q] += W * (-1)**l
+                    H[i+N_q,j+N_q] += W * (-1)**l
     else:
         for i in range(N_q):
             # Kinetic energy
@@ -538,7 +569,7 @@ def calc_BS_line(q_vals, basis, **kwargs):
     N_q = q_vals.shape[0]
     E_vals = np.zeros((N,N_q))
     print('Evaluating Hamiltonian...')
-    H = calc_H(q=q_vals[0,:], **kwargs)
+    H = calc_H(q=q_vals[0,:], basis=basis, **kwargs)
     print('Done')
     for i in range(N_q):
         print(f'Evaluating q value {i+1} of {N_q}... ' + 10*' ', end='\r')
@@ -657,14 +688,14 @@ def calc_DoS(filename=None, E_vals=None, dE=0.01, q_max=None, q_path=None,
     return dos, E_bins
 
 
-def calc_q_GMKG(q_M=None, q_K=None, G0=G0):
+def calc_q_GMKG(q_M=None, q_K=None, G0=G0, R=8):
     if q_M is None:
         q_M = np.array([G0/2, 0.])
-        q_K = np.array([G0/2, G0/2 * np.tan(np.pi/10)])
+        q_K = np.array([G0/2, G0/2 * np.tan(np.pi/R)])
     q_vals_GM = np.column_stack((np.linspace(0, q_M[0], 100),
                                  np.linspace(0, q_M[1], 100)))
-    q_vals_MK = np.column_stack((np.linspace(q_M[0], q_K[0], 50)[1:],
-                                 np.linspace(q_M[1], q_K[1], 50)[1:]))
+    q_vals_MK = np.column_stack((np.linspace(q_M[0], q_K[0], 100)[1:],
+                                 np.linspace(q_M[1], q_K[1], 100)[1:]))
     q_vals_KG = np.column_stack((np.linspace(q_K[0], 0, 100)[1:],
                                  np.linspace(q_K[1], 0, 100)[1:]))
     q_vals = np.concatenate((q_vals_GM, q_vals_MK, q_vals_KG))
@@ -802,13 +833,134 @@ def select_physical_bands(filename=None, qx_vals=None, qy_vals=None, E_vals=None
         np.savez(save_filename, selected_E_vals=selected_E_vals, **save_dict)
     else:
         return selected_E_vals
+    
+
+def calc_spectral_weights(
+    k_vals: np.ndarray,        # shape (N_k, 2)
+    basis: tuple,              # (b_down, b_up)
+    # recip_lattice: np.ndarray, # shape (2, 2)
+    **kwargs,                  # passed through to calc_BS_point
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Backfold k_vals, diagonalise at each unique q, and extract spectral weights.
+
+    Returns:
+        evals_k:   shape (N_k, N_bands), eigenvalues for each k point
+        weights_k: shape (N_k, N_bands), spectral weights summed over spin
+    """
+    b_up, b_down = basis
+    N_basis = len(b_down)
+    idx_down = np.where(np.isclose(b_down, np.zeros(2), atol=0.001).all(axis=1))[0][0]
+    idx_up = np.where(np.isclose(b_up, np.zeros(2), atol=0.001).all(axis=1))[0][0]
+    # print(idx_down, idx_up)
+
+    # if 'num_bands' in kwargs:
+    #     num_bands = kwargs['num_bands']
+    # else:
+    #     num_bands = N_basis
+    num_evals = kwargs.get('num_evals', 2*N_basis)
+
+    # q_vals, i_q_arr, i_G_arr = backfold_k_points(k_vals, basis, recip_lattice)
+    # print(q_vals.shape)
+
+    # Diagonalise at each unique q point
+    q_vals = np.copy(k_vals)
+    # all_evals, all_evects = [], []
+    N_k = q_vals.shape[0]
+    evals_k   = np.empty((N_k, num_evals))
+    weights_k = np.empty((N_k, num_evals))
+    H = calc_H(q_vals[0,:], basis=basis, **kwargs)
+    for i,q in enumerate(tqdm(q_vals)):
+        # print(q)
+        H = adjust_KE(H, q, basis)
+        evals, evects = calc_BS_point(q=q, return_evects=True, basis=basis, H=H, **kwargs)
+        # all_evals.append(evals)
+        evals_k[i,:] = evals
+        w_down = np.abs(evects[idx_down+N_basis, :])**2
+        w_up   = np.abs(evects[idx_up, :])**2
+        weights_k[i, :] = w_down + w_up
+        # all_evects.append(evects)
+
+    # N_k = len(k_vals)
+    # N_bands = len(all_evals[0])
+
+    # for i_k in range(N_k):
+    #     # i_q = i_q_arr[i_k]
+    #     # i_G = i_G_arr[i_k]
+
+    #     evects = all_evects[i_k]                         # shape (2*N_basis, N_bands)
+    #     w_down = np.abs(evects[0, :])**2
+    #     w_up   = np.abs(evects[N_basis, :])**2
+
+    #     evals_k[i_k]   = all_evals[i_k]
+    #     weights_k[i_k] = w_down + w_up
+
+    return evals_k, weights_k
+
+
+def calc_spectral_function(
+    evals_k: np.ndarray,   # shape (N_k, N_bands)
+    weights_k: np.ndarray, # shape (N_k, N_bands)
+    w_vals: np.ndarray,    # shape (N_w,)
+    sigma: float,
+) -> np.ndarray:           # shape (N_k, N_w)
+    """
+    Compute A(k, w) from precomputed weights and eigenvalues.
+    Can be called repeatedly with different w_vals/sigma without re-diagonalising.
+    """
+    # diffs shape: (N_k, N_bands, N_w)
+    diffs = w_vals[np.newaxis, np.newaxis, :] - evals_k[:, :, np.newaxis]
+    gaussians = np.exp(-0.5 * (diffs / sigma)**2) / (sigma * np.sqrt(2 * np.pi))
+
+    # weights_k shape (N_k, N_bands), gaussians shape (N_k, N_bands, N_w)
+    return np.einsum('kb,kbw->kw', weights_k, gaussians)
 
 
 if __name__ == '__main__':
-    f = 'Updated_Geometry/Data/BS_Surface_b1_R8_U20.0_N5_V0.0_.npz'
-    select_physical_bands(filename=f, save=True)
-    # orders = 4
-    # basis = calc_basis_states(basis=None, orders=orders, cutoff=None)
+
+    # f = 'Updated_Geometry/Data/BS_Surface_b1_R8_U20.0_N5_V0.0_.npz'
+    # select_physical_bands(filename=f, save=True)
+    R = 8
+    l = np.arange(R)
+    G_vects = np.column_stack((np.cos(2*np.pi*l/R),
+                         np.sin(2*np.pi*l/R)))
+    g_vects = np.roll(G_vects, -1, axis=0) - G_vects
+    orders = 5
+    cutoff = 2.5
+    basis = calc_basis_states(basis=None, orders=orders, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects)
+    # f = f'Updated_Geometry/Data/Basis_o{orders}.npz'
+    # data = np.load(f)
+    # b_full = data['basis']
+    # basis = calc_basis_states(orders=orders, cutoff=cutoff, basis=None,
+    #                               G_vects=G, g_vects=g_vects)
+    # basis = calc_basis_states(orders=orders, cutoff=cutoff, basis=b_full,
+    #                             G_vects=G_vects, g_vects=g_vects)
+    (b_up, b_down) = basis
+    # print(basis[1][:10,:])
+    # idx_down = np.where(np.isclose(b_down, np.zeros(2), atol=0.001).all(axis=1))[0]
+    # idx_up = np.where(np.isclose(b_up, np.zeros(2), atol=0.001).all(axis=1))[0]
+    # print(idx_down)
+    # print(idx_up)
+    # print(b_down[idx_down,:])
+    # print(b_up[idx_up,:])
+    # plot_basis_states(basis, orders=orders, cutoff=cutoff, R=R, plot_QBZ=True, plot_BZ=False)
+
+    # b = {0:np.zeros(2), 3:G[0,:], 6:G[0,:]+G[3,:], 1:G[0,:]+G[3,:]+G[6,:], 
+    #      4:G[0,:]+G[3,:]+G[6,:]+G[1,:], 7:G[3,:]+G[6,:]+G[1,:], 2:G[6,:]+G[1,:], 
+    #      5:G[1,:]}
+    # b_down = np.array(list(b.values()))
+    # basis = (b_down, np.copy(b_down))
+    # # plot_basis_states(basis, plot_BZ=False, plot_QBZ=True, R=8)
+    # U0 = 0.03
+    # N = 5
+    # V0 = 0
+    # q_vals = calc_q_GMKG(G0=1)
+    # q_K = np.array([0.5, 0.5 * np.tan(np.pi/8)])
+    # dq = np.array([np.linalg.norm(q_K - b) for b in b_down])
+    # print(dq)
+    # evals = calc_BS_line(q_vals, basis=basis, U0=U0, V0=V0, N=N, R=R, G_vects=G)
+    # print(evals.shape)
+    # np.savez('Updated_Geometry/Data/SpectrumTest.npz', evals=evals, q_vals=q_vals)
     # np.savez('Updated Geometry/Data/Basis_o4.npz', basis=basis, orders=orders, cutoff=None)
     
     # f = 'Updated Geometry/Data/Basis_o6.npz'

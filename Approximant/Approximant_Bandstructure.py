@@ -4,6 +4,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import Polygon
 import scipy as sp
 import Approximant_Vectors as AV
+from tqdm import tqdm
 
 
 def calc_phi(N=1, phi0=0, R=5):
@@ -212,9 +213,7 @@ def calc_BS_point(q=None, return_evects=False, sparse=False, num_evals=20,
         evals = evals[sorted_indices]
         evects = evects[:, sorted_indices]
     else:
-        # print(H.shape)
         evals, evects = np.linalg.eigh(H)
-        # print(evals.shape,evects.shape)
     if return_evects:
         return evals, evects
     else:
@@ -369,18 +368,171 @@ def calc_max_idx(E_vals, E_min, E_max):
             idx = n
     return idx
 
+
+def backfold_k_points(
+    k_vals: np.ndarray,           # shape (N_k, 2)
+    basis: tuple,                 # (b_down, b_up), each a list/array of G vectors, shape (N_basis, 2)
+    recip_lattice: np.ndarray,    # shape (2, 2), rows are primitive reciprocal lattice vectors
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Backfold k_vals into the first BZ and find the corresponding basis index.
+
+    Returns:
+        q_vals:   shape (N_q, 2), unique crystal momenta
+        i_q_arr:  shape (N_k,), index into q_vals for each k point
+        i_G_arr:  shape (N_k,), basis G-vector index for each k point
+    """
+    b_down, _ = basis
+    G_vectors = np.array(b_down)  # shape (N_basis, 2)
+    inv_recip = np.linalg.inv(recip_lattice)
+
+    unique_q = {}
+    q_list = []
+    i_q_arr = np.empty(len(k_vals), dtype=int)
+    i_G_arr = np.empty(len(k_vals), dtype=int)
+
+    for i, k in enumerate(k_vals):
+        frac = k @ inv_recip
+        G_coeffs = np.round(frac).astype(int)
+        G_vec = G_coeffs @ recip_lattice
+        q_vec = k - G_vec
+
+        diffs = np.linalg.norm(G_vectors - (-G_vec), axis=1)
+        i_G = int(np.argmin(diffs))
+        if diffs[i_G] > 1e-6:
+            raise ValueError(
+                f"k={k} backfolds with G={G_vec} but this G was not found in basis. "
+                "Ensure your basis covers all G vectors reachable from your k path."
+            )
+
+        q_key = tuple(np.round(q_vec, decimals=10))  # keyed on q, not G
+        if q_key not in unique_q:
+            i_q = len(q_list)
+            unique_q[q_key] = i_q
+            q_list.append(q_vec)
+
+        i_q_arr[i] = unique_q[q_key]
+        i_G_arr[i] = i_G
+
+    return np.array(q_list), i_q_arr, i_G_arr
+
+
+def calc_spectral_weights(
+    k_vals: np.ndarray,        # shape (N_k, 2)
+    basis: tuple,              # (b_down, b_up)
+    recip_lattice: np.ndarray, # shape (2, 2)
+    **kwargs,                  # passed through to calc_BS_point
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Backfold k_vals, diagonalise at each unique q, and extract spectral weights.
+
+    Returns:
+        evals_k:   shape (N_k, N_bands), eigenvalues for each k point
+        weights_k: shape (N_k, N_bands), spectral weights summed over spin
+    """
+    b_down, _ = basis
+    N_basis = len(b_down)
+
+    q_vals, i_q_arr, i_G_arr = backfold_k_points(k_vals, basis, recip_lattice)
+    # print(q_vals.shape)
+
+    # Diagonalise at each unique q point
+    all_evals, all_evects = [], []
+    H = calc_H(q_vals[0,:], basis=basis, **kwargs)
+    for q in tqdm(q_vals):
+        # print(q)
+        H = adjust_KE(H, q, basis)
+        evals, evects = calc_BS_point(q=q, return_evects=True, basis=basis, H=H, **kwargs)
+        all_evals.append(evals)
+        all_evects.append(evects)
+
+    N_k = len(k_vals)
+    N_bands = len(all_evals[0])
+    evals_k   = np.empty((N_k, N_bands))
+    weights_k = np.empty((N_k, N_bands))
+
+    for i_k in range(N_k):
+        i_q = i_q_arr[i_k]
+        i_G = i_G_arr[i_k]
+
+        evects = all_evects[i_q]                         # shape (2*N_basis, N_bands)
+        w_down = np.abs(evects[i_G, :])**2
+        w_up   = np.abs(evects[i_G + N_basis, :])**2
+
+        evals_k[i_k]   = all_evals[i_q]
+        weights_k[i_k] = w_down + w_up
+
+    return evals_k, weights_k
+
+
+def calc_spectral_function(
+    evals_k: np.ndarray,   # shape (N_k, N_bands)
+    weights_k: np.ndarray, # shape (N_k, N_bands)
+    w_vals: np.ndarray,    # shape (N_w,)
+    sigma: float,
+) -> np.ndarray:           # shape (N_k, N_w)
+    """
+    Compute A(k, w) from precomputed weights and eigenvalues.
+    Can be called repeatedly with different w_vals/sigma without re-diagonalising.
+    """
+    # diffs shape: (N_k, N_bands, N_w)
+    diffs = w_vals[np.newaxis, np.newaxis, :] - evals_k[:, :, np.newaxis]
+    gaussians = np.exp(-0.5 * (diffs / sigma)**2) / (sigma * np.sqrt(2 * np.pi))
+
+    # weights_k shape (N_k, N_bands), gaussians shape (N_k, N_bands, N_w)
+    return np.einsum('kb,kbw->kw', weights_k, gaussians)
+
+
+def calc_q_GMKG(q_M=None, q_K=None, G0=1, R=8):
+    if q_M is None:
+        q_M = np.array([G0/2, 0.])
+        q_K = np.array([G0/2, G0/2 * np.tan(np.pi/R)])
+    q_vals_GM = np.column_stack((np.linspace(0, q_M[0], 100),
+                                 np.linspace(0, q_M[1], 100)))
+    q_vals_MK = np.column_stack((np.linspace(q_M[0], q_K[0], 100)[1:],
+                                 np.linspace(q_M[1], q_K[1], 100)[1:]))
+    q_vals_KG = np.column_stack((np.linspace(q_K[0], 0, 100)[1:],
+                                 np.linspace(q_K[1], 0, 100)[1:]))
+    q_vals = np.concatenate((q_vals_GM, q_vals_MK, q_vals_KG))
+    return q_vals
+
+
+
 if __name__ == '__main__':
-    print(sp.__version__)
-    print(np.__version__)
-    # a = 9
+    f = 'Approximant/Data/8Fold/SpectralFunction/Data_KPoint_R8_a7_c2.5_U0.03_N5_V0.0.npz'
+    w_vals = np.linspace(-0.02, 0.4, 1000)
+    sigma = 0.001
+    data = np.load(f, allow_pickle=True)
+    # print(data.items)
+    save_dict = {k:data[k] for k in data.files}
+    evals_k = data['evals_k']
+    weights_k = data['weights_k']
+    A = calc_spectral_function(evals_k, weights_k, w_vals, sigma)
+    save_dict['A'] = A
+    np.savez(f, **save_dict)
+    # print(sp.__version__)
+    # print(np.__version__)
+    # a = 7
     # cutoff = 2.5
-    # # basis = calc_square_basis_states(a=a, cutoff=cutoff)
-    # G_vects = AV.square_approximant(a=a)
+    # R = 8
+    # l = np.arange(R)
+    # basis = calc_square_basis_states(a=a, cutoff=cutoff)
+    # G_vects_exact = np.column_stack((np.cos(2*np.pi*l/R),
+    #                             np.sin(2*np.pi*l/R)))
+    # G_vects = AV.square_approximant(a=a, G_vects=G_vects_exact)
+    # g_vects = np.roll(G_vects, -1, axis=0) - G_vects
+
     # # print(basis[0].shape)
     # # plot_basis_states(basis)
-    # U0 = 0.2
-    # V0 = 0.15
-    # N = 3
+    # U0 = 0.03
+    # V0 = 0.
+    # N = 5
+    # q = np.array([0.5, 3/(2*7)])
+    # H = calc_H(q=q, U0=U0, V0=0, N=N, G_vects=G_vects, g_vects=g_vects,
+    #            R=R, basis=basis)
+    # evals = calc_BS_point(H=H, sparse=True, num_evals=90)
+    # print(evals)
+
 
     # phi_vals = calc_phi(N=N)
     # U = -U0 * expi(-phi_vals)
