@@ -8,7 +8,7 @@ Quasicrystals have spatial order, but are not periodic. Quasiperiodic systems wi
 ## Contents
 ### Approximant
 This folder contains code used to generate and analyse periodic approximants to the quasiperiodic system.
-- Approximant_Bandstructure.py: code for diagonalising the approximant Hamiltonians, calculating the density of states (DoS), etc.
+- Approximant_Bandstructure.py: code for diagonalising the approximant Hamiltonians, calculating the density of states (DoS), spectral function, etc.
 - Approximant_Curvature.py: code for calculating the Berry curvature and Chern number of approximant systems.
 - Approximant_Vectors.py: code for generating and visualising the approximant systems.
 - Generate_Combined_Data.py: a single script which can be run to fully analyse a single approximant system with specified parameters. The bandstructure, density of states, Berry curvature and Chern number are all calculated and saved.
@@ -19,7 +19,7 @@ This folder contains code used to generate and analyse periodic approximants to 
 
 ### Updated Geometry
 This folder contains code used in analysing the quasiperiodic system directly. (The name 'updated' is with reference to a previous model, which was discarded as it did not become topological anywhere in parameter space).
-- Calc_Bandstructure.py: code for calculating the system bandstructure, DoS, etc., using a basis of plane-wave states.
+- Calc_Bandstructure.py: code for calculating the system bandstructure, DoS, spectral function etc., using a basis of plane-wave states.
 - Calc_Curvature.py: code for calculating the Berry curvature and Chern number.
 - Generate_Data.py: script for performing a full analysis of a quasiperiodic system with specified parameters, performed at a specified order of expansion in the plane-wave basis.
 - Plot_Bandstructure.py: code for plotting bandstructures, DoS, etc.
@@ -38,9 +38,3 @@ This folder contains code used for analysing an alternative 'dark state' Hamilto
 
 ### Data
 This contains the data used to produce the figures in the paper as .npz files. Files contain the data displayed on the plots, as well as the parameters of the system or calculation.
-
-### Green_Function
-This folder contains code for calculating the density of states via Green's Function methods. The self-energy is calculated up to a certain order in diagrammatic perturbation theory, in turn enabling the calculation of the Green's Function and density of states.
-- GF_1D.py: code for evaluating Green's functions and density of states for 1D systems.
-- Perturbation_Theory.py: code for evaluating bandstructures and density of states via perturbation theory, for comparison with the Green's Function results.
-- Plotting.py: code for plotting the numerically obtained density of states.
