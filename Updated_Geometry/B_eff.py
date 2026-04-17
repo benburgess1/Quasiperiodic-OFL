@@ -222,12 +222,15 @@ def plot_n_component(filename, component='x', cmap=plt.colormaps['bwr'], levels=
 
 def plot_V_mag(filename, invert=False, cmap=plt.colormaps['bwr'], levels=None,
                      axlim=None, plot_cbar=True, plot_title=True,
-                     xticks=None, yticks=None, ticks=None, norm=None, extend=None):
+                     xticks=None, yticks=None, ticks=None, norm=None, extend=None,
+                     filter_min=None):
     data = np.load(filename)
     x_vals = data['x_vals']
     y_vals = data['y_vals']
     xx, yy = np.meshgrid(x_vals, y_vals, indexing='ij')
     V_mag = np.real(data['B_vals'])
+    if filter_min is not None:
+        V_mag = np.where(V_mag > filter_min * np.max(V_mag), V_mag, 0)
     if invert:
         V_mag = 1 / V_mag
         zlab = r'$|V(\mathbf{r})|^{-1}$'
@@ -236,9 +239,9 @@ def plot_V_mag(filename, invert=False, cmap=plt.colormaps['bwr'], levels=None,
     fig, ax = plt.subplots()
     if levels is None:
         vmax = np.max(np.abs(V_mag))
-        levels = np.linspace(-vmax, vmax, 200)
+        levels = np.linspace(0, vmax, 200)
     if ticks is None:
-        ticks = [np.min(levels), 0, np.max(levels)]
+        ticks = [0, np.max(levels)]
     plot = ax.contourf(xx, yy, V_mag, cmap=cmap, levels=levels, norm=norm, extend=extend)
     if plot_cbar:
         cbar = fig.colorbar(plot, ticks=ticks)
@@ -583,6 +586,15 @@ def generate_n_phi_table(f, dp=3):
 
 
 if __name__ == '__main__':
+    x_vals = np.linspace(-60, 60, 301)
+    y_vals = np.copy(x_vals)
+    U = 1.0
+    V = 0.
+    N = 5
+    R = 8
+    f = f'Updated_Geometry/Data/BlochVector_R{R}_U{U:.3g}_N{N}_V{V:.3g}.npz'
+    # calc_n(x_vals, y_vals, U0=U, N=N, V0=V, R=R, save=True, filename=f)
+    plot_V_mag(f, cmap=plt.colormaps['plasma'], filter_min=0.97)
     # x = np.linspace(12,14,101)
     # y = np.linspace(7,9,101)
     U_mag = 0.05
@@ -610,13 +622,13 @@ if __name__ == '__main__':
     # plot_B_eff(f, shift_r=True)#, levels=np.linspace(-0.001,0.001,200), ticks=[-0.001,0,0.001])#, axlim=(0,2*np.pi*a))
     # sample_B_eff(N_samples=100, dx=dx, xmax=xmax, sample_xmax=1000, 
     #              save=True, save_filename=f, U0=U_mag, N=N, V0=V_mag, R=R)
-    data = np.load(f)
-    print(data['r0'])
-    print(data['B_av_vals'])
-    print(data['B_av_mean']*(2*np.pi))
-    print(data['B_av_std']*(2*np.pi))
+    # data = np.load(f)
+    # print(data['r0'])
+    # print(data['B_av_vals'])
+    # print(data['B_av_mean']*(2*np.pi))
+    # print(data['B_av_std']*(2*np.pi))
 
-    visualise_samples(f)
+    # visualise_samples(f)
 
     a_vals = np.arange(1,11)
     dx_vals = dx * np.ones(a_vals.size)
@@ -626,7 +638,8 @@ if __name__ == '__main__':
     N = 5
     a = 3
     dx = 0.01
-    f = f'Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+    f = f'Updated_Geometry/Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
+
     # f = f'Updated_Geometry/Data/Phi_R{R}_a1-10_dx{dx}_U{U_mag}_N{N}_V{V_mag}.npz'
     # f = 'Updated_Geometry/Data/Phi_R8_a1-10_dx0.01_U0.1_N5_V0.05.npz'
     # calc_phi_vs_a(a_vals=a_vals, dx_vals=dx_vals, U0=U_mag, N=N, V0=V_mag, R=R,
