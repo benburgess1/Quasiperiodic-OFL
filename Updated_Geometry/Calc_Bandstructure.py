@@ -50,7 +50,8 @@ def remove_cutoff(arr, cutoff):
     return arr[mask]
 
 
-def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cutoff=1.6):
+def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cutoff=1.6,
+                      print_progress=True):
     if basis is None:
         prev_down = np.array([np.zeros(2)])
         prev_up = np.array([np.zeros(2)])
@@ -58,14 +59,16 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
         b_up = np.array([np.zeros(2)])
 
         for i in range(orders):
-            print(f'Evaluating order {i+1} out of {orders}')
+            if print_progress:
+                print(f'Evaluating order {i+1} out of {orders}')
             # new_down = np.array([[]])
             # new_up = np.array([[]])
             new_down = np.array([prev_up[0,:]-G_vects[0,:]])
             new_up = np.array([prev_down[0,:]+G_vects[0,:]])
             # skip = True
             for j,point in enumerate(prev_down):
-                print(f'Evaluating down point {j+1} out of {prev_down.shape[0]}...' + 10*' ', end='\r')
+                if print_progress:
+                    print(f'Evaluating down point {j+1} out of {prev_down.shape[0]}...' + 10*' ', end='\r')
                 # Connect from previous spin-down to new spin-up
                 for G in G_vects:
                     # if skip:
@@ -79,10 +82,12 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
                 for g in g_vects:
                     new_down = np.concatenate((new_down, np.array([point+g])), axis=0)
                     new_down = np.concatenate((new_down, np.array([point-g])), axis=0)
-            print('')
+            if print_progress: 
+                print('')
             # skip = True
             for j,point in enumerate(prev_up):
-                print(f'Evaluating up point {j+1} out of {prev_up.shape[0]}...' + 10*' ', end='\r')
+                if print_progress:
+                    print(f'Evaluating up point {j+1} out of {prev_up.shape[0]}...' + 10*' ', end='\r')
                 # Connect from previous up to new down
                 for G in G_vects:
                     # if skip:
@@ -100,13 +105,14 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
                     new_up = np.concatenate((new_up, np.array([point-g])), axis=0)
             new_up = new_up[1:,:]
             new_down = new_down[1:,:]
-            print('')
-            print('Removing duplicates... ', end='', flush=True)
+            if print_progress:
+                print('\nRemoving duplicates... ', end='', flush=True)
             new_down = remove_duplicates(new_down)
             new_up = remove_duplicates(new_up)
             new_down = remove_duplicates(new_down, compare_arr=b_down)
             new_up = remove_duplicates(new_up, compare_arr=b_up)
-            print('Done')
+            if print_progress:
+                print('Done')
             
             # print(b_down)
             # print(new_down)
@@ -123,8 +129,8 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
         b_up_unique, b_down_unique = b_up, b_down
     else:
         (b_up_unique, b_down_unique) = basis
-
-    print('Applying cutoff... ', end='', flush=True)
+    if print_progress:
+        print('Applying cutoff... ', end='', flush=True)
     if cutoff is not None:
         b_down_unique = remove_cutoff(b_down_unique, cutoff)
         b_up_unique = remove_cutoff(b_up_unique, cutoff)
@@ -134,7 +140,8 @@ def calc_basis_states(orders=2, G_vects=G_vects, g_vects=g_vects, basis=None, cu
         # norms_up = np.linalg.norm(b_up_unique, axis=1)
         # mask = norms_up < cutoff
         # b_up_unique = b_up_unique[mask]
-    print('Done')
+    if print_progress:
+        print('Done')
     return (b_up_unique, b_down_unique)
 
 
@@ -288,7 +295,8 @@ def octagon(a=1, r0=np.array([0,0]), color='k'):
 
 
 def plot_basis_states(basis, ms=5, plot_BZ=True, plot_QBZ=False, invert=False, plot_title=True, orders=3,
-                      cutoff=None, inside_QBZ=False, R=5, exclude_down=False):
+                      cutoff=None, inside_QBZ=False, R=5, exclude_down=False, axis_titles=True,
+                      G_min_in_title=False):
     fig,ax = plt.subplots()
     (b_up, b_down) = basis
     if inside_QBZ:
@@ -303,8 +311,12 @@ def plot_basis_states(basis, ms=5, plot_BZ=True, plot_QBZ=False, invert=False, p
     if not exclude_down:
         ax.plot(b_down[:,0], b_down[:,1], marker='x', color='r', ls='', ms=ms)
     ax.set_aspect('equal')
-    ax.set_xticks([])
-    ax.set_yticks([])
+    if axis_titles:
+        ax.set_xlabel(r'$k_x$ / $|\mathbf{G}|$')
+        ax.set_ylabel(r'$k_y$ / $|\mathbf{G}|$')
+    else:
+        ax.set_xticks([])
+        ax.set_yticks([])
     if plot_BZ:
         ax.add_patch(decagon(a=0.5))
     elif plot_QBZ:
@@ -324,7 +336,12 @@ def plot_basis_states(basis, ms=5, plot_BZ=True, plot_QBZ=False, invert=False, p
             ax.add_patch(patch)
 
     if plot_title:
-        ax.set_title(f'Orders = {orders}, Cutoff = {cutoff}, Size = {b_up.shape[0]}x2')
+        title_str = f'Orders = {orders}, ' + r'$k_{max}=$' + f'{cutoff}, Size = {b_up.shape[0]}x2'
+        if G_min_in_title:
+            G_mag = np.linalg.norm(b_up, axis=1) 
+            G_min = np.min(G_mag[G_mag > 0.001])
+            title_str += r', $G_{min}=$' + f'{G_min:.4g}'
+        ax.set_title(title_str)
     plt.show()
 
 
@@ -568,15 +585,15 @@ def calc_BS_line(q_vals, basis, **kwargs):
         N = 2*N_q_basis
     N_q = q_vals.shape[0]
     E_vals = np.zeros((N,N_q))
-    print('Evaluating Hamiltonian...')
+    print('Evaluating Hamiltonian... ', end='', flush=True)
     H = calc_H(q=q_vals[0,:], basis=basis, **kwargs)
     print('Done')
-    for i in range(N_q):
-        print(f'Evaluating q value {i+1} of {N_q}... ' + 10*' ', end='\r')
+    for i in tqdm(range(N_q)):
+        # print(f'Evaluating q value {i+1} of {N_q}... ' + 10*' ', end='\r')
         if i != 0:
             H = adjust_KE(H, q=q_vals[i,:], basis=basis)
         E_vals[:,i] = calc_BS_point(H=H, basis=basis, **kwargs)
-    print('\nDone')
+    # print('\nDone')
     return E_vals
 
 
@@ -688,16 +705,16 @@ def calc_DoS(filename=None, E_vals=None, dE=0.01, q_max=None, q_path=None,
     return dos, E_bins
 
 
-def calc_q_GMKG(q_M=None, q_K=None, G0=G0, R=8):
+def calc_q_GMKG(q_M=None, q_K=None, G0=G0, R=8, N_k=100):
     if q_M is None:
         q_M = np.array([G0/2, 0.])
         q_K = np.array([G0/2, G0/2 * np.tan(np.pi/R)])
-    q_vals_GM = np.column_stack((np.linspace(0, q_M[0], 100),
-                                 np.linspace(0, q_M[1], 100)))
-    q_vals_MK = np.column_stack((np.linspace(q_M[0], q_K[0], 100)[1:],
-                                 np.linspace(q_M[1], q_K[1], 100)[1:]))
-    q_vals_KG = np.column_stack((np.linspace(q_K[0], 0, 100)[1:],
-                                 np.linspace(q_K[1], 0, 100)[1:]))
+    q_vals_GM = np.column_stack((np.linspace(0, q_M[0], N_k),
+                                 np.linspace(0, q_M[1], N_k)))
+    q_vals_MK = np.column_stack((np.linspace(q_M[0], q_K[0], N_k)[1:],
+                                 np.linspace(q_M[1], q_K[1], N_k)[1:]))
+    q_vals_KG = np.column_stack((np.linspace(q_K[0], 0, N_k)[1:],
+                                 np.linspace(q_K[1], 0, N_k)[1:]))
     q_vals = np.concatenate((q_vals_GM, q_vals_MK, q_vals_KG))
     return q_vals
 
@@ -839,7 +856,9 @@ def calc_spectral_weights(
     k_vals: np.ndarray,        # shape (N_k, 2)
     basis: tuple,              # (b_down, b_up)
     # recip_lattice: np.ndarray, # shape (2, 2)
+    calc_IPR: bool = False,
     **kwargs,                  # passed through to calc_BS_point
+
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Backfold k_vals, diagonalise at each unique q, and extract spectral weights.
@@ -852,57 +871,40 @@ def calc_spectral_weights(
     N_basis = len(b_down)
     idx_down = np.where(np.isclose(b_down, np.zeros(2), atol=0.001).all(axis=1))[0][0]
     idx_up = np.where(np.isclose(b_up, np.zeros(2), atol=0.001).all(axis=1))[0][0]
-    # print(idx_down, idx_up)
 
-    # if 'num_bands' in kwargs:
-    #     num_bands = kwargs['num_bands']
-    # else:
-    #     num_bands = N_basis
     num_evals = kwargs.get('num_evals', 2*N_basis)
 
-    # q_vals, i_q_arr, i_G_arr = backfold_k_points(k_vals, basis, recip_lattice)
-    # print(q_vals.shape)
-
-    # Diagonalise at each unique q point
     q_vals = np.copy(k_vals)
-    # all_evals, all_evects = [], []
     N_k = q_vals.shape[0]
     evals_k   = np.empty((N_k, num_evals))
-    weights_k = np.empty((N_k, num_evals))
+    weights_up = np.empty((N_k, num_evals))
+    weights_down = np.empty((N_k, num_evals))
+    IPR_k = np.empty((N_k, num_evals))
     H = calc_H(q_vals[0,:], basis=basis, **kwargs)
-    for i,q in enumerate(tqdm(q_vals)):
-        # print(q)
+    for i, q in enumerate(tqdm(q_vals)):
         H = adjust_KE(H, q, basis)
         evals, evects = calc_BS_point(q=q, return_evects=True, basis=basis, H=H, **kwargs)
-        # all_evals.append(evals)
         evals_k[i,:] = evals
         w_down = np.abs(evects[idx_down+N_basis, :])**2
         w_up   = np.abs(evects[idx_up, :])**2
-        weights_k[i, :] = w_down + w_up
-        # all_evects.append(evects)
-
-    # N_k = len(k_vals)
-    # N_bands = len(all_evals[0])
-
-    # for i_k in range(N_k):
-    #     # i_q = i_q_arr[i_k]
-    #     # i_G = i_G_arr[i_k]
-
-    #     evects = all_evects[i_k]                         # shape (2*N_basis, N_bands)
-    #     w_down = np.abs(evects[0, :])**2
-    #     w_up   = np.abs(evects[N_basis, :])**2
-
-    #     evals_k[i_k]   = all_evals[i_k]
-    #     weights_k[i_k] = w_down + w_up
-
-    return evals_k, weights_k
+        weights_up[i, :] = w_up
+        weights_down[i, :] = w_down
+        if calc_IPR:
+            IPR_k[i,:] = np.sum(np.abs(evects)**4, axis=0)
+    if calc_IPR:
+        return evals_k, weights_up, weights_down, IPR_k
+    else:
+        return evals_k, weights_up, weights_down
 
 
 def calc_spectral_function(
-    evals_k: np.ndarray,   # shape (N_k, N_bands)
-    weights_k: np.ndarray, # shape (N_k, N_bands)
     w_vals: np.ndarray,    # shape (N_w,)
     sigma: float,
+    evals_k: np.ndarray,   # shape (N_k, N_bands)
+    weights_k: np.ndarray = None,
+    weights_up: np.ndarray = None, # shape (N_k, N_bands)
+    weights_down: np.ndarray = None, # shape (N_k, N_bands)
+    normalise_gaussian: bool = False,
 ) -> np.ndarray:           # shape (N_k, N_w)
     """
     Compute A(k, w) from precomputed weights and eigenvalues.
@@ -910,10 +912,82 @@ def calc_spectral_function(
     """
     # diffs shape: (N_k, N_bands, N_w)
     diffs = w_vals[np.newaxis, np.newaxis, :] - evals_k[:, :, np.newaxis]
-    gaussians = np.exp(-0.5 * (diffs / sigma)**2) / (sigma * np.sqrt(2 * np.pi))
+    gaussians = np.exp(-0.5 * (diffs / sigma)**2)
+    if normalise_gaussian:
+        gaussians /= (sigma * np.sqrt(2 * np.pi))
+    else:
+        gaussians /= 2       # Account for spin so that max possible A(k,w) = 1
+
+    if weights_up is not None and weights_down is not None:
+        weights_k = weights_up + weights_down
 
     # weights_k shape (N_k, N_bands), gaussians shape (N_k, N_bands, N_w)
     return np.einsum('kb,kbw->kw', weights_k, gaussians)
+
+
+def calc_spectral_IPR(
+    evals_k: np.ndarray,   # shape (N_k, N_bands)
+    weights_k: np.ndarray, # shape (N_k, N_bands)
+    IPR_k: np.ndarray, # shape (N_k, N_bands)
+    w_vals: np.ndarray,    # shape (N_w,)
+    sigma: float,
+    normalise_gaussian: bool = True,
+) -> np.ndarray:           # shape (N_k, N_w)
+    """
+    Compute I(k, w) from precomputed weights and eigenvalues.
+    Can be called repeatedly with different w_vals/sigma without re-diagonalising.
+    """
+    # diffs shape: (N_k, N_bands, N_w)
+    diffs = w_vals[np.newaxis, np.newaxis, :] - evals_k[:, :, np.newaxis]
+    gaussians = np.exp(-0.5 * (diffs / sigma)**2) 
+    if normalise_gaussian:
+        gaussians /= (sigma * np.sqrt(2 * np.pi))
+    else:
+        gaussians /= 2       # Account for spin so that max possible I(k,w) = 1
+
+    # weights_k shape (N_k, N_bands), IPR_k shape (N_k, N_bands), gaussians shape (N_k, N_bands, N_w)
+    return np.einsum('kb,kb,kbw->kw', weights_k, IPR_k, gaussians, optimize=True)
+
+
+def calc_spectral_IPR_alt(
+    w_vals: np.ndarray,    # shape (N_w,)
+    sigma: float,
+    evals_k: np.ndarray,   # shape (N_k, N_bands)
+    weights_up: np.ndarray, # shape (N_k, N_bands)
+    weights_down: np.ndarray, # shape (N_k, N_bands)
+    normalise_gaussian: bool = True,
+) -> np.ndarray:           # shape (N_k, N_w)
+    """
+    Compute alternative I(k, w) from precomputed weights and eigenvalues.
+    Can be called repeatedly with different w_vals/sigma without re-diagonalising.
+    """
+    # diffs shape: (N_k, N_bands, N_w)
+    diffs = w_vals[np.newaxis, np.newaxis, :] - evals_k[:, :, np.newaxis]
+    gaussians = np.exp(-0.5 * (diffs / sigma)**2) 
+    if normalise_gaussian:
+        gaussians /= (sigma * np.sqrt(2 * np.pi))
+    else:
+        gaussians /= 2       # Account for spin so that max possible I(k,w) = 1
+
+    # weights_k shape (N_k, N_bands), IPR_k shape (N_k, N_bands), gaussians shape (N_k, N_bands, N_w)
+    weights_k = np.abs(weights_up)**2 + np.abs(weights_down)**2
+    return np.einsum('kb,kbw->kw', weights_k, gaussians, optimize=True)
+
+
+def calc_psi_r(x_vals, y_vals, psi_k, basis, k0):
+    if len(psi_k.shape) == 1:
+        psi_k = psi_k.reshape((psi_k.shape[0], 1))
+    b_up, b_down = basis
+    N_k = b_up.shape[0]
+    k_up = k0 - b_up
+    k_down = k0 - b_down
+    xx, yy = np.meshgrid(x_vals, y_vals, indexing='ij')
+    phase_up   = k_up[:, 0, None, None] * xx[None] + k_up[:, 1, None, None] * yy[None]
+    phase_down = k_down[:, 0, None, None] * xx[None] + k_down[:, 1, None, None] * yy[None]
+    psi_r_up   = np.sum(psi_k[:N_k, :, None, None] * np.exp(1j * phase_up[:, None, :, :]), axis=0)
+    psi_r_down = np.sum(psi_k[N_k:, :, None, None] * np.exp(1j * phase_down[:, None, :, :]), axis=0)
+    return psi_r_up, psi_r_down
+
 
 
 if __name__ == '__main__':
@@ -925,9 +999,37 @@ if __name__ == '__main__':
     G_vects = np.column_stack((np.cos(2*np.pi*l/R),
                          np.sin(2*np.pi*l/R)))
     g_vects = np.roll(G_vects, -1, axis=0) - G_vects
-    orders = 5
-    cutoff = 2.5
-    basis = calc_basis_states(basis=None, orders=orders, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects)
+    orders = np.arange(1, 11)
+    cutoff = None
+    for O in orders:
+        f = f'Updated_Geometry/Data/Basis_O{O}.npz'
+        data = np.load(f)
+        basis = data['basis']
+        print(f'O = {O}, N = {basis[0].shape[0]} x 2')
+        # print(f'Evaluating O = {O}...')
+        # basis = calc_basis_states(basis=None, orders=O, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects,
+        #                         print_progress=True)
+        # np.savez(f'Data/Basis_O{O}.npz', basis=basis, O=O, cutoff=cutoff)
+    # G_mins = []
+    # for O in orders:
+    #     basis = calc_basis_states(basis=None, orders=O, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects,
+    #                             print_progress=True)
+    #     (b_up, b_down) = basis
+    #     G_mag = np.linalg.norm(b_up, axis=1) 
+    #     G_min = np.min(G_mag[G_mag > 0.001])
+    #     G_mins.append(G_min)
+    # np.savez('Updated_Geometry/Data/G_min.npz', orders=orders, G_mins=G_mins)
+
+    # data = np.load('Updated_Geometry/Data/G_min.npz')
+    # orders = data['orders']
+    # G_mins = data['G_mins']
+    # fig, ax = plt.subplots()
+    # ax.plot(orders, G_mins, marker='x', ls='-', color='b')
+    # ax.set_xlabel(r'$O$')
+    # ax.set_ylabel(r'$G_{min}$')
+    # ax.set_title('Minimum Basis Vector vs Order')
+    # plt.show()
+
     # f = f'Updated_Geometry/Data/Basis_o{orders}.npz'
     # data = np.load(f)
     # b_full = data['basis']
@@ -935,7 +1037,9 @@ if __name__ == '__main__':
     #                               G_vects=G, g_vects=g_vects)
     # basis = calc_basis_states(orders=orders, cutoff=cutoff, basis=b_full,
     #                             G_vects=G_vects, g_vects=g_vects)
-    (b_up, b_down) = basis
+    # G_mag = np.linalg.norm(b_up, axis=1)
+    # G_min = np.min(G_mag[G_mag>0.001])
+    # print(f'G_min = {G_min:.4g}')
     # print(basis[1][:10,:])
     # idx_down = np.where(np.isclose(b_down, np.zeros(2), atol=0.001).all(axis=1))[0]
     # idx_up = np.where(np.isclose(b_up, np.zeros(2), atol=0.001).all(axis=1))[0]
@@ -943,7 +1047,8 @@ if __name__ == '__main__':
     # print(idx_up)
     # print(b_down[idx_down,:])
     # print(b_up[idx_up,:])
-    # plot_basis_states(basis, orders=orders, cutoff=cutoff, R=R, plot_QBZ=True, plot_BZ=False)
+    # plot_basis_states(basis, orders=orders, cutoff=cutoff, R=R, plot_QBZ=False, plot_BZ=False, ms=2,
+    #                   G_min_in_title=True)
 
     # b = {0:np.zeros(2), 3:G[0,:], 6:G[0,:]+G[3,:], 1:G[0,:]+G[3,:]+G[6,:], 
     #      4:G[0,:]+G[3,:]+G[6,:]+G[1,:], 7:G[3,:]+G[6,:]+G[1,:], 2:G[6,:]+G[1,:], 
