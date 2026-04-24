@@ -5,6 +5,8 @@ import os
 import Calc_Bandstructure as CBS
 import matplotlib as mpl
 from scipy.optimize import curve_fit
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 
 
 def title_params(filename, include_bands=True, bands=None, include_orders=True):
@@ -211,13 +213,23 @@ def plot_DoS(filename, plot_title=True, scalefactor=1., xlim=None,
 
 def plot_BS_surface(filename, E_R=1, bands=None, plot_title=True, 
                     title_str=None, q_max=None, q_max_in_title=False,
-                    q_path=None, plot_selected=False):
+                    q_path=None, plot_selected=False, use_index=False, 
+                    title_params={}):
     data = np.load(filename)
     qx_vals = data['qx_vals']
     qy_vals = data['qy_vals']
     qxx,qyy = np.meshgrid(qx_vals, qy_vals, indexing='ij')
     if plot_selected:
         E_vals = data['selected_E_vals']
+    elif use_index:
+        E_vals = data['E_vals']
+        idx1 = data['k0_up_max_idx']
+        idx2 = data['k0_down_max_idx']
+        # print(idx1.shape)
+        print(idx1)
+        E1 = CBS.slice_array(E_vals, idx1)
+        E2 = CBS.slice_array(E_vals, idx2)
+        E_vals = np.array([E1, E2])
     else:
         E_vals = data['E_vals']
     if q_max is not None:
@@ -249,7 +261,8 @@ def plot_BS_surface(filename, E_R=1, bands=None, plot_title=True,
         E_vals = np.where(mask[None, :, :], E_vals, np.nan)
     fig,ax = plt.subplots(subplot_kw={'projection':'3d'})
     if plot_title:
-        title_str = title_params(filename, bands=bands)
+        # title_str = title_params(filename, bands=bands)
+        title_str = make_title_str(title_params, data, base_str='Extracted Eigenvalues' if use_index else 'Bandstructure')
         if q_max_in_title and q_max is not None:
             title_str += ', ' + r'$|q| < $' + str(np.round(q_max,2))
         ax.set_title(title_str)
@@ -313,13 +326,16 @@ def compare_DoS(filenames, E_scale=0.25, colors=None, labels=None, orders=None,
 
 def make_title_str(title_params, data, base_str='', dp=5):
     for k, v in title_params.items():
-        val = data[k]
-        if len(base_str) > 0:
-            base_str += ', '
         try:
-            base_str += v + r'$=$' + f'{val:.{dp}g}'
-        except TypeError:
-            base_str += v + r'$=$' + str(val)
+            val = data[k]
+            if len(base_str) > 0:
+                base_str += ', '
+            try:
+                base_str += v + r'$=$' + f'{val:.{dp}g}'
+            except TypeError:
+                base_str += v + r'$=$' + str(val)
+        except KeyError as e:
+            print('Warning: ' + k + f'not contained in data: {e}')
     return base_str
 
 
@@ -682,20 +698,411 @@ def plot_ipr_convergence(filename, title_params={}, x='N_basis', fit=None, p0=No
     plt.show()
 
 
-if __name__ == '__main__':
-    f = 'Updated_Geometry/Data/Convergence_IPR_k00_O1-6_cNone_U5_V0_N5_R8.npz'
-    plot_ipr_convergence(f, title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'cutoff':r'$k_{max}$'}, x='N_basis',
-                         fit='polynomial', plot_residuals=False, log_y=False, log_x=False, weighted=False, eps=1e-3,
-                         x_min_fit=None,
+def generate_I0_vs_U_data(U_vals, x_min_fit=None, p0=None, eps=1e-3, sigma=None, weighted=False,
+                          left_str='Updated_Geometry/Data/Convergence_IPR_k00_O1-7_c3.5_U', 
+                          right_str='_V0_N5_R8.npz', save_filename='Data.npz'):
+    filenames = [left_str + f'{U:.4g}' + right_str for U in U_vals]
+    I0_vals = np.zeros(len(U_vals))
+    a_vals = np.zeros(len(U_vals))
+    b_vals = np.zeros(len(U_vals))
+    I0_errs = np.zeros(len(U_vals))
+    a_errs = np.zeros(len(U_vals))
+    b_errs = np.zeros(len(U_vals))
+    def model(x, IPR0, a, b):
+            return IPR0 + a * x ** b
+    for i, f in enumerate(filenames):
+        plot_ipr_convergence(f, title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'cutoff':r'$k_{max}$'}, x='N_basis',
+                         fit='polynomial_offset', plot_residuals=False, log_y=False, log_x=False, weighted=False, eps=1e-3,
+                         x_min_fit=500,
                          )
+        data = np.load(f)
+        x_data = data['N_basis']
+        IPR_vals = data['IPR_vals'][:, 0]
+        if x_min_fit is not None:
+            mask = x_data > x_min_fit
+            if mask.sum() < 2:
+                raise ValueError(f"x_min_fit={x_min_fit} leaves fewer than 2 data points for fitting.")
+            x_fit_data   = x_data[mask]
+            IPR_fit_vals = IPR_vals[mask]
+        else:
+            x_fit_data   = x_data
+            IPR_fit_vals = IPR_vals
+        bounds = ([-np.inf, 0, -np.inf], [IPR_fit_vals.min(), np.inf, 0])
+        if p0 is not None:
+            p0_init = p0
+        else:
+            IPR0_guess = IPR_fit_vals[-1]
+            b_guess    = np.log((IPR_fit_vals[-1] - IPR0_guess + eps) /
+                                (IPR_fit_vals[0]  - IPR0_guess + eps)) / \
+                         np.log(x_fit_data[-1] / x_fit_data[0])
+            a_guess    = (IPR_fit_vals[0] - IPR0_guess) / (x_fit_data[0] ** b_guess)
+            p0_init    = (IPR0_guess, a_guess, b_guess)
+
+        if sigma is not None:
+            fit_sigma = sigma[mask] if x_min_fit is not None else sigma
+        elif weighted:
+            fit_sigma = IPR_fit_vals + eps
+        else:
+            fit_sigma = None
+
+        use_absolute_sigma = fit_sigma is not None
+
+        try:
+            popt, pcov = curve_fit(model, x_fit_data, IPR_fit_vals, p0=p0_init,
+                                   bounds=bounds, sigma=fit_sigma,
+                                   absolute_sigma=use_absolute_sigma, maxfev=10000)
+            perr = np.sqrt(np.diag(pcov))
+            I0_vals[i] = popt[0]
+            a_vals[i] = popt[1]
+            b_vals[i] = popt[2]
+            I0_errs[i] = perr[0]
+            a_errs[i] = perr[1]
+            b_errs[i] = perr[2]
+        except RuntimeError as e:
+            print(f"Warning: curve_fit failed to converge: {e}")
+    np.savez(save_filename, U_vals=U_vals, I0_vals=I0_vals, a_vals=a_vals, b_vals=b_vals,
+             I0_errs=I0_errs, a_errs=a_errs, b_errs=b_errs, p0=p0, x_min_fit=x_min_fit, 
+             sigma=sigma, weighted=weighted, filenames=filenames)
+
+        
+def plot_I0_vs_U(filename):
+    data = np.load(filename)
+    U_vals = data['U_vals']
+    I0_vals = data['I0_vals']
+    I0_errs = data['I0_errs']
+    fig, ax = plt.subplots()
+    ax.errorbar(U_vals, I0_vals, yerr=I0_errs, marker='x', ls='-', color='b')
+    ax.set_xlabel(r'$U$ / $E_R$')
+    ax.set_ylabel(r'$I_0$')
+    ax.set_title(r'Fitted $I_0$ vs $U$')
+    plt.show()
+
+
+def plot_spectrum_vs_U(filenames, num_evals=100, normalise_E=True, ms=5, title_params={},
+                       zero_KE_filename=None, U_zero_KE=None):
+    U_vals = np.zeros(len(filenames))
+    E_vals = np.zeros((len(filenames), num_evals))
+    for i, f in enumerate(filenames):
+        data = np.load(f, allow_pickle=True)
+        U_vals[i] = data['U0']
+        E_vals[i,:] = data['evals'][:num_evals]
+    if normalise_E:
+        E_vals /= U_vals[:, np.newaxis]
+        ylab = r'$E$ / $U$'
+    else:
+        ylab = r'$E$ / $E_R$'
+    fig, ax = plt.subplots()
+    ax.plot(U_vals, E_vals, ls='-', marker='o', ms=ms, color='b')
+    if zero_KE_filename is not None:
+        data = np.load(zero_KE_filename, allow_pickle=True)
+        evals = data['evals']
+        if U_zero_KE is None:
+            U_zero_KE = 1.1 * np.max(U_vals)
+        ax.plot(U_zero_KE*np.ones(num_evals), evals[:num_evals], marker='o', ls='', color='r', ms=ms)
+    ax.set_xlabel(r'$U$ / $E_R$')
+    ax.set_ylabel(ylab)
+    title_str = make_title_str(title_params, data, base_str='Energy Spectrum')
+    ax.set_title(title_str)
+    plt.show()
+
+
+def slice_array(arr, idxs):
+    """Slice arr of shape (N_evals, Nx, Ny) down to (Nx, Ny) using index array idxs."""
+    Nx, Ny = idxs.shape
+    i, j = np.meshgrid(np.arange(Nx), np.arange(Ny), indexing='ij')
+    return arr[idxs, i, j]
+
+
+def plot_energy_levels(
+    filenames,
+    ax=None,
+    cmap="viridis",
+    vmin=None,
+    vmax=None,
+    marker_size=10,
+    alpha=0.6,
+    plot_fig=True,
+    title_params={},
+    ipr_log_scale=False,
+    equally_spaced_x=False,
+    x_parameter="U0",
+    x_label=None,
+):
+    """
+    Plot energy levels coloured by IPR for one or more .npz data files,
+    overlaid on a single plot with x-position given by a saved parameter.
+
+    Parameters
+    ----------
+    filenames : str or list of str
+        Path(s) to .npz file(s). Each file must contain:
+            E_vals          : (N_evals, Nx, Ny)
+            IPR_vals        : (N_evals, Nx, Ny)
+            k0_up_max_idx   : (Nx, Ny)  index into first axis of E_vals / IPR_vals
+            k0_down_max_idx : (Nx, Ny)  index into first axis of E_vals / IPR_vals
+            U0              : scalar    default x-axis parameter
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot onto. A new figure is created if None.
+    cmap : str, optional
+        Colormap name for IPR values (default "viridis").
+    vmin, vmax : float, optional
+        Color scale limits. If None, determined from all loaded data.
+        When ipr_log_scale=True these should be given as raw IPR values
+        (not log), e.g. vmin=1e-4, vmax=1.0.
+    marker_size : float, optional
+        Size of scatter points (default 10).
+    alpha : float, optional
+        Opacity of scatter points (default 0.6).
+    plot_fig : bool, optional
+        Whether to call plt.show() at the end (default True).
+    title_params : dict, optional
+        Passed to make_title_str to build the plot title.
+    ipr_log_scale : bool, optional
+        If True, colour the points on a logarithmic IPR scale using
+        LogNorm instead of Normalize (default False).
+    equally_spaced_x : bool, optional
+        If True, files are plotted at equally spaced integer x positions
+        (0, 1, 2, ...) sorted by x_parameter, with tick labels showing
+        the parameter values. If False (default), the actual parameter
+        values are used as x positions.
+    x_parameter : str, optional
+        Key in the .npz file to use as the x-axis parameter (default "U0").
+        Must be a scalar in each file.
+    x_label : str, optional
+        x-axis label. If None, defaults to r"$U$ / $E_R$" when
+        x_parameter="U0", otherwise uses the parameter name as-is.
+
+    Returns
+    -------
+    fig, ax : the figure and axes objects.
+    """
+    if isinstance(filenames, str):
+        filenames = [filenames]
+
+    # ------------------------------------------------------------------
+    # First pass: load all data, optionally infer vmin/vmax
+    # ------------------------------------------------------------------
+    records = []
+    all_ipr = []
+
+    for fname in filenames:
+        data = np.load(fname)
+        E_vals   = data["E_vals"]           # (N_evals, Nx, Ny)
+        IPR_vals = data["IPR_vals"]         # (N_evals, Nx, Ny)
+        idx_up   = data["k0_up_max_idx"]    # (Nx, Ny)
+        idx_dn   = data["k0_down_max_idx"]  # (Nx, Ny)
+        x_val    = float(data[x_parameter])
+
+        E_up   = slice_array(E_vals,   idx_up).ravel()
+        E_dn   = slice_array(E_vals,   idx_dn).ravel()
+        IPR_up = slice_array(IPR_vals, idx_up).ravel()
+        IPR_dn = slice_array(IPR_vals, idx_dn).ravel()
+
+        E_all   = np.concatenate([E_up,   E_dn])
+        IPR_all = np.concatenate([IPR_up, IPR_dn])
+
+        records.append((x_val, E_all, IPR_all))
+        all_ipr.append(IPR_all)
+
+    # Sort records by x_val so equally-spaced ticks are in ascending order
+    records.sort(key=lambda r: r[0])
+
+    if vmin is None:
+        vmin = min(arr.min() for arr in all_ipr)
+    if vmax is None:
+        vmax = max(arr.max() for arr in all_ipr)
+
+    if ipr_log_scale:
+        norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+
+    cmap_obj = mpl.colormaps.get_cmap(cmap)
+
+    # ------------------------------------------------------------------
+    # Second pass: plot
+    # ------------------------------------------------------------------
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.get_figure()
+
+    for plot_idx, (x_val, E_all, IPR_all) in enumerate(records):
+        x_pos = plot_idx if equally_spaced_x else x_val
+        x = np.full_like(E_all, x_pos)
+        ax.scatter(
+            x, E_all,
+            c=IPR_all,
+            cmap=cmap_obj,
+            norm=norm,
+            s=marker_size,
+            alpha=alpha,
+            linewidths=0,
+        )
+
+    if equally_spaced_x:
+        tick_positions = np.arange(len(records))
+        tick_labels = [str(x_val) for x_val, _, _ in records]
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right")
+
+    # Colorbar
+    cbar = fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap_obj),
+        ax=ax,
+        label="IPR",
+    )
+
+    if x_label is None:
+        x_label = r"$U$ / $E_R$" if x_parameter == "U0" else x_parameter
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(r"$E$ / $E_R$")
+    title_str = make_title_str(title_params, data, base_str='Energy levels coloured by IPR')
+    ax.set_title(title_str)
+
+    if plot_fig:
+        plt.show()
+
+    return fig, ax
+
+
+def plot_ipr_vs_energy(
+    filename,
+    ax=None,
+    color="steelblue",
+    marker_size=10,
+    alpha=0.6,
+    ipr_log_scale=False,
+    plot_fig=True,
+    title_params={},
+    x_label=r"$E$ / $E_R$",
+    y_label=None,
+):
+    """
+    Plot IPR vs energy for a single .npz file.
+
+    The two sets of eigenvalues selected by k0_up_max_idx and k0_down_max_idx
+    are treated identically and all (Nx·Ny) points are flattened and plotted.
+
+    Parameters
+    ----------
+    filename : str
+        Path to a .npz file containing:
+            E_vals          : (N_evals, Nx, Ny)
+            IPR_vals        : (N_evals, Nx, Ny)
+            k0_up_max_idx   : (Nx, Ny)
+            k0_down_max_idx : (Nx, Ny)
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot onto. A new figure is created if None.
+    color : str, optional
+        Colour of the scatter points (default "steelblue").
+    marker_size : float, optional
+        Size of scatter points (default 10).
+    alpha : float, optional
+        Opacity of scatter points (default 0.6).
+    ipr_log_scale : bool, optional
+        If True, the IPR (y) axis is plotted on a log scale (default False).
+    plot_fig : bool, optional
+        Whether to call plt.show() at the end (default True).
+    title_params : dict, optional
+        Passed to make_title_str to build the plot title.
+    x_label : str, optional
+        x-axis label (default r"$E$ / $E_R$").
+    y_label : str, optional
+        y-axis label. If None, defaults to "IPR" or "IPR (log scale)"
+        depending on ipr_log_scale.
+
+    Returns
+    -------
+    fig, ax : the figure and axes objects.
+    """
+    # ------------------------------------------------------------------
+    # Load and slice data
+    # ------------------------------------------------------------------
+    data    = np.load(filename)
+    E_vals   = data["E_vals"]           # (N_evals, Nx, Ny)
+    IPR_vals = data["IPR_vals"]         # (N_evals, Nx, Ny)
+    idx_up   = data["k0_up_max_idx"]    # (Nx, Ny)
+    idx_dn   = data["k0_down_max_idx"]  # (Nx, Ny)
+
+    E_all   = np.concatenate([slice_array(E_vals,   idx_up).ravel(),
+                               slice_array(E_vals,   idx_dn).ravel()])
+    IPR_all = np.concatenate([slice_array(IPR_vals, idx_up).ravel(),
+                               slice_array(IPR_vals, idx_dn).ravel()])
+
+    # ------------------------------------------------------------------
+    # Plot
+    # ------------------------------------------------------------------
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.get_figure()
+
+    ax.scatter(
+        E_all, IPR_all,
+        c=color,
+        s=marker_size,
+        alpha=alpha,
+        linewidths=0,
+    )
+
+    if ipr_log_scale:
+        ax.set_yscale("log")
+
+    if y_label is None:
+        y_label = "IPR (log scale)" if ipr_log_scale else "IPR"
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    title_str = make_title_str(title_params, data, base_str='IPR vs Energy')
+    ax.set_title(title_str)
+
+    if plot_fig:
+        plt.show()
+
+    return fig, ax
+
+
+
+if __name__ == '__main__':
+    f = 'Updated_Geometry/Data/BS_surface_R8_O3_c3.5_U10_V0_N5_R8.npz'
+    plot_ipr_vs_energy(f, color='b', title_params={'U0':r'$U$', 'V0':r'$V$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
+                       ipr_log_scale=False)
+    # plot_BS_surface(f, use_index=True,
+    #                 title_params={'U0':r'$U$', 'V0':r'$V$',
+    #                               'orders':r'$O$', 'cutoff':r'$k_{max}$'})
+    left_str = 'Updated_Geometry/Data/BS_surface_R8_O3_c3.5_U'
+    right_str = '_V0_N5_R8.npz'
+    U_vals = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 1., 2., 5., 10.]
+    filenames = [left_str + f'{U:.3g}' + right_str for U in U_vals]
+    # plot_energy_levels(filenames, title_params={'V0':r'$V$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
+    #                    equally_spaced_x=True, vmax=1)
+    # f = 'Updated_Geometry/Data/I0_U0.05-0.22_O1-7_c3.5.npz'
+    # generate_I0_vs_U_data(U_vals=[0.05, 0.1, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22],
+    #                       x_min_fit=500, save_filename=f,
+    #                       left_str='Updated_Geometry/Data/Convergence_IPR_k00_O1-7_c3.5_U', 
+    #                       right_str='_V0_N5_R8.npz')
+    # plot_I0_vs_U(f)
+    # f = 'Updated_Geometry/Data/Convergence_IPR_k00_KE0_O1-6_cNone_U1_V0_N5_R8.npz'
+    # plot_ipr_convergence(f, title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'cutoff':r'$k_{max}$'}, x='N_basis',
+    #                      fit='polynomial', plot_residuals=False, log_y=True, log_x=True, weighted=False, eps=1e-3,
+    #                      x_min_fit=500,
+    #                      )
     # f = 'Updated_Geometry/Data/Convergence_k00_O1-6_cNone_U0.5_V0_N5_R8.npz'
     # plot_convergence(f, title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'cutoff':r'$k_{max}$'}, x='N_basis',
     #                  fit='polynomial', plot_residuals=True, log_y=True, log_x=True, weighted=False, eps=1e-10
     #                  )
     # f = 'Updated_Geometry/Data/BS_qx_R8_O7_c3.5_U0.3_V0_N5_R8.npz'
+    # f = 'Updated_Geometry/Data/WF_k00_O5_cNone_U5_V0_W0_N5_R8.npz'
     # data = np.load(f)
-    # E_vals = data['E_vals']
-    # print(E_vals.shape)
+    # E_vals = data['evals']
+    # print(E_vals.shape) 
+    # print(E_vals[:10])
+    # U_vals = [0.05, 0.2, 0.5, 1., 1.5, 2., 2.5, 3., 5., 10.]
+    # filenames = [f'Updated_Geometry/Data/WF_k00_O5_cNone_U{U:.3g}_V0_W0_N5_R8.npz' for U in U_vals]
+    # plot_spectrum_vs_U(filenames, num_evals=100, title_params={'orders':r'$O$', 'cutoff':r'$k_{max}$'},
+    #                    zero_KE_filename='Updated_Geometry/Data/WF_k00_KE0_O5_cNone_U1_V0_W0_N5_R8.npz')
+
     # print(E_vals[:20,0])
     # plot_BS_line(f, bands=np.arange(300), x='qx', E_lim=(-0.63, 0.3), color='b',
     #              title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},)
