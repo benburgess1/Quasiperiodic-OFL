@@ -586,15 +586,15 @@ def generate_n_phi_table(f, dp=3):
 
 
 if __name__ == '__main__':
-    x_vals = np.linspace(-60, 60, 301)
+    x_vals = np.linspace(0, 60, 501)
     y_vals = np.copy(x_vals)
     U = 1.0
     V = 0.
     N = 5
     R = 8
-    f = f'Updated_Geometry/Data/BlochVector_R{R}_U{U:.3g}_N{N}_V{V:.3g}.npz'
-    # calc_n(x_vals, y_vals, U0=U, N=N, V0=V, R=R, save=True, filename=f)
-    plot_V_mag(f, cmap=plt.colormaps['plasma'], filter_min=0.97)
+    f = f'Updated_Geometry/Data/BlochVector_R{R}_U{U:.3g}_N{N}_V{V:.3g}_fine.npz'
+    calc_n(x_vals, y_vals, U0=U, N=N, V0=V, R=R, save=True, filename=f)
+    plot_V_mag(f, cmap=plt.colormaps['plasma'], filter_min=0.95)
     # x = np.linspace(12,14,101)
     # y = np.linspace(7,9,101)
     U_mag = 0.05

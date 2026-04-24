@@ -7,8 +7,9 @@ from tqdm import tqdm
 
 
 G0 = 1
-G_vects = G0 * np.column_stack((np.cos(np.arange(5)*2*np.pi/5),
-                                np.sin(np.arange(5)*2*np.pi/5)))
+R = 8
+G_vects = G0 * np.column_stack((np.cos(np.arange(R)*2*np.pi/R),
+                                np.sin(np.arange(R)*2*np.pi/R)))
 
 g_vects = np.roll(G_vects, -1, axis=0) - G_vects
 
@@ -432,7 +433,7 @@ def adjust_KE(H, q, basis):
 
 def calc_H(q, basis, U0=0.02, N=5, R=8,
            phi_vals=None, G_vects=G_vects, g_vects=None, V0=0., V=None, 
-           idx_map=None, W=0., **kwargs):
+           idx_map=None, W=0., zero_KE=False, **kwargs):
     (b_up, b_down) = basis
     N_q = b_down.shape[0]
     N_basis = 2*N_q
@@ -449,8 +450,9 @@ def calc_H(q, basis, U0=0.02, N=5, R=8,
     if idx_map is None:
         for i in range(N_q):
             # Kinetic energy
-            H[i,i] = np.sum((q-b_up[i,:])**2)
-            H[i+N_q,i+N_q] = np.sum((q-b_down[i,:])**2)
+            if not zero_KE:
+                H[i,i] = np.sum((q-b_up[i,:])**2)
+                H[i+N_q,i+N_q] = np.sum((q-b_down[i,:])**2)
             # Same-spin couplings
             for j in range(i+1, N_q):
                 # Down-to-down couplings
@@ -605,34 +607,30 @@ def calc_BS_surface(qx, qy, basis, return_evects=False, num_evals=None, **kwargs
         N_evals = num_evals
     else:
         N_evals = N_basis
-        # print(N_evals)
     E_vals = np.zeros((N_evals,nx,ny))
     if return_evects:
         evects_arr = np.zeros((N_basis,N_evals,nx,ny), dtype=np.complex128)
-    print('Evaluating Hamiltonian...')
+    print('Evaluating Hamiltonian... ', end='', flush=True)
     H = calc_H(q=np.array([qx[0],qy[0]]), basis=basis, **kwargs)
-    # H = adjust_KE(H, q=np.array([qx[0], qy[0]]), basis=basis)
     print('Done')
-    for i in range(nx):
-        for j in range(ny):
-            print(f'Evaluating q value {i*ny+j+1} out of {nx*ny}...' + 10*' ', 
-                  end='\r')
-            # if i == 0  and j == 0:
-            H = adjust_KE(H, q=np.array([qx[i], qy[j]]), basis=basis)
-            # print(H.shape)
-            # print(basis[0].shape)
-            if return_evects:
-                E_vals[:,i,j],evects_arr[:,:,i,j] = calc_BS_point(H=H, 
-                                                                  basis=basis, 
-                                                                  return_evects=return_evects, 
-                                                                  num_evals=num_evals,
-                                                                  **kwargs)
-            else:
-                E_vals[:,i,j] = calc_BS_point(H=H, basis=basis, 
-                                              return_evects=return_evects,
-                                              num_evals=num_evals,
-                                              **kwargs)
-    print(f'Evaluating q value {i*ny+j+1} out of {nx*ny}... Done')
+    print('Performing diagonalisation:')
+    with tqdm(total=nx * ny, desc='Evaluating q values') as pbar:
+        for i in range(nx):
+            for j in range(ny):
+                H = adjust_KE(H, q=np.array([qx[i], qy[j]]), basis=basis)
+                if return_evects:
+                    E_vals[:,i,j],evects_arr[:,:,i,j] = calc_BS_point(H=H, 
+                                                                    basis=basis, 
+                                                                    return_evects=return_evects, 
+                                                                    num_evals=num_evals,
+                                                                    **kwargs)
+                else:
+                    E_vals[:,i,j] = calc_BS_point(H=H, basis=basis, 
+                                                return_evects=return_evects,
+                                                num_evals=num_evals,
+                                                **kwargs)
+                pbar.update(1)
+    print('Done')
     if return_evects:
         return E_vals, evects_arr
     else:
@@ -989,6 +987,11 @@ def calc_psi_r(x_vals, y_vals, psi_k, basis, k0):
     return psi_r_up, psi_r_down
 
 
+def slice_array(arr, idxs):
+    """Slice arr of shape (N_evals, Nx, Ny) down to (Nx, Ny) using index array idxs."""
+    Nx, Ny = idxs.shape
+    i, j = np.meshgrid(np.arange(Nx), np.arange(Ny), indexing='ij')
+    return arr[idxs, i, j]
 
 if __name__ == '__main__':
 
