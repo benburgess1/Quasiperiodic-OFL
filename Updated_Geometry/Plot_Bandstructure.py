@@ -7,6 +7,7 @@ import matplotlib as mpl
 from scipy.optimize import curve_fit
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+from matplotlib.collections import LineCollection
 
 
 def title_params(filename, include_bands=True, bands=None, include_orders=True):
@@ -335,13 +336,9 @@ def make_title_str(title_params, data, base_str='', dp=5):
             except TypeError:
                 base_str += v + r'$=$' + str(val)
         except KeyError as e:
-            print('Warning: ' + k + f'not contained in data: {e}')
+            print('Warning: ' + k + f' not contained in data: {e}')
     return base_str
 
-
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
 
 def plot_convergence(filename, title_params={}, x='N_basis', y='E', fit=None, p0=None,
                      plot_residuals=False, log_x=False, log_y=False,
@@ -827,6 +824,7 @@ def plot_energy_levels(
     equally_spaced_x=False,
     x_parameter="U0",
     x_label=None,
+    highlight_idx=None,
 ):
     """
     Plot energy levels coloured by IPR for one or more .npz data files,
@@ -901,7 +899,7 @@ def plot_energy_levels(
         E_all   = np.concatenate([E_up,   E_dn])
         IPR_all = np.concatenate([IPR_up, IPR_dn])
 
-        records.append((x_val, E_all, IPR_all))
+        records.append((x_val, E_all, IPR_all, E_up, E_dn))
         all_ipr.append(IPR_all)
 
     # Sort records by x_val so equally-spaced ticks are in ascending order
@@ -927,7 +925,7 @@ def plot_energy_levels(
     else:
         fig = ax.get_figure()
 
-    for plot_idx, (x_val, E_all, IPR_all) in enumerate(records):
+    for plot_idx, (x_val, E_all, IPR_all, E_up, E_dn) in enumerate(records):
         x_pos = plot_idx if equally_spaced_x else x_val
         x = np.full_like(E_all, x_pos)
         ax.scatter(
@@ -939,10 +937,15 @@ def plot_energy_levels(
             alpha=alpha,
             linewidths=0,
         )
+        if highlight_idx is not None:
+            E_up_sorted = np.sort(E_up)
+            E_dn_sorted = np.sort(E_dn)
+            ax.scatter(x_pos, E_up_sorted[highlight_idx], marker='x', c='r', s=marker_size, alpha=alpha)
+            ax.scatter(x_pos, E_dn_sorted[highlight_idx], marker='x', c='r', s=marker_size, alpha=alpha)
 
     if equally_spaced_x:
         tick_positions = np.arange(len(records))
-        tick_labels = [str(x_val) for x_val, _, _ in records]
+        tick_labels = [str(x_val) for x_val, _, _, _, _ in records]
         ax.set_xticks(tick_positions)
         ax.set_xticklabels(tick_labels, rotation=45, ha="right")
 
@@ -1063,20 +1066,176 @@ def plot_ipr_vs_energy(
     return fig, ax
 
 
+def plot_dos_IPR(
+    filename,
+    ax=None,
+    gaussian_width=0.01,
+    n_energy_points=1000,
+    cmap="viridis",
+    vmin=None,
+    vmax=None,
+    ipr_log_scale=False,
+    linewidth=2,
+    plot_fig=True,
+    title_params={},
+    x_label=r"$E$ / $E_R$",
+    y_label="DoS (arb. units)",
+):
+    """
+    Calculate and plot the density of states (DoS) from a single .npz file,
+    with the curve coloured according to the IPR of the nearest eigenstate.
+
+    The DoS is computed by summing Gaussians centred on each selected
+    eigenvalue. The colour at each point on the DoS curve reflects the
+    IPR of whichever eigenstate has the closest energy to that point.
+
+    Only the two states selected by k0_up_max_idx and k0_down_max_idx
+    are used (same selection as the other plotting functions).
+
+    Parameters
+    ----------
+    filename : str
+        Path to a .npz file containing:
+            E_vals          : (N_evals, Nx, Ny)
+            IPR_vals        : (N_evals, Nx, Ny)
+            k0_up_max_idx   : (Nx, Ny)
+            k0_down_max_idx : (Nx, Ny)
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot onto. A new figure is created if None.
+    gaussian_width : float, optional
+        Standard deviation of the Gaussians used to broaden each
+        eigenstate (in the same units as E_vals, default 0.01).
+    n_energy_points : int, optional
+        Number of points on the energy axis at which the DoS and
+        IPR colour are evaluated (default 1000).
+    cmap : str, optional
+        Colormap name for the IPR colouring (default "viridis").
+    vmin, vmax : float, optional
+        IPR colour scale limits. If None, determined from the data.
+        When ipr_log_scale=True, supply raw IPR values (not log).
+    ipr_log_scale : bool, optional
+        If True, colour the curve on a logarithmic IPR scale
+        (default False).
+    linewidth : float, optional
+        Width of the DoS curve (default 2).
+    plot_fig : bool, optional
+        Whether to call plt.show() at the end (default True).
+    title_params : dict, optional
+        Passed to make_title_str to build the plot title.
+    x_label : str, optional
+        x-axis label (default r"$E$ / $E_R$").
+    y_label : str, optional
+        y-axis label (default "DoS (arb. units)").
+
+    Returns
+    -------
+    fig, ax : the figure and axes objects.
+    """
+    # ------------------------------------------------------------------
+    # Load and slice data
+    # ------------------------------------------------------------------
+    data     = np.load(filename)
+    E_vals   = data["E_vals"]
+    IPR_vals = data["IPR_vals"]
+    idx_up   = data["k0_up_max_idx"]
+    idx_dn   = data["k0_down_max_idx"]
+
+    E_all   = np.concatenate([slice_array(E_vals,   idx_up).ravel(),
+                               slice_array(E_vals,   idx_dn).ravel()])
+    IPR_all = np.concatenate([slice_array(IPR_vals, idx_up).ravel(),
+                               slice_array(IPR_vals, idx_dn).ravel()])
+
+    # ------------------------------------------------------------------
+    # Build energy axis with a small margin beyond the data range
+    # ------------------------------------------------------------------
+    margin  = 5 * gaussian_width
+    E_grid  = np.linspace(E_all.min() - margin, E_all.max() + margin,
+                           n_energy_points)
+
+    # ------------------------------------------------------------------
+    # Evaluate DoS at each point on E_grid
+    # weights shape: (n_energy_points, N_states)
+    # ------------------------------------------------------------------
+    diff    = E_grid[:, np.newaxis] - E_all[np.newaxis, :]
+    weights = np.exp(-0.5 * (diff / gaussian_width) ** 2)
+
+    dos      = weights.sum(axis=1)
+    dos_norm = dos / dos.max()
+
+    # ------------------------------------------------------------------
+    # Colour by IPR of the nearest eigenstate at each energy grid point
+    # np.argmin over axis=1 gives index into E_all for each E_grid point
+    # ------------------------------------------------------------------
+    nearest_idx = np.argmin(np.abs(diff), axis=1)   # (n_energy_points,)
+    ipr_nearest = IPR_all[nearest_idx]               # (n_energy_points,)
+
+    # ------------------------------------------------------------------
+    # Colour scale
+    # ------------------------------------------------------------------
+    if vmin is None:
+        vmin = IPR_all.min()
+    if vmax is None:
+        vmax = IPR_all.max()
+
+    if ipr_log_scale:
+        norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+
+    cmap_obj = mpl.colormaps.get_cmap(cmap)
+
+    # ------------------------------------------------------------------
+    # Plot: draw the curve as a collection of coloured line segments
+    # ------------------------------------------------------------------
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.get_figure()
+
+    points   = np.array([E_grid, dos_norm]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    mid_ipr  = 0.5 * (ipr_nearest[:-1] + ipr_nearest[1:])
+
+    lc = LineCollection(segments, cmap=cmap_obj, norm=norm, linewidth=linewidth)
+    lc.set_array(mid_ipr)
+    ax.add_collection(lc)
+
+    ax.set_xlim(E_grid[0], E_grid[-1])
+    ax.set_ylim(0, 1.05)
+
+    fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap_obj),
+        ax=ax,
+        label="IPR (log scale)" if ipr_log_scale else "IPR",
+    )
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    title_str = make_title_str(title_params, data, base_str='Density of States')
+    ax.set_title(title_str)
+
+    if plot_fig:
+        plt.show()
+
+    return fig, ax
+
+
 
 if __name__ == '__main__':
-    f = 'Updated_Geometry/Data/BS_surface_R8_O3_c3.5_U10_V0_N5_R8.npz'
-    plot_ipr_vs_energy(f, color='b', title_params={'U0':r'$U$', 'V0':r'$V$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
+    f = 'Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U0.05_V0_N5_R8.npz'
+    plot_ipr_vs_energy(f, color='b', title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
                        ipr_log_scale=False)
+    plot_dos_IPR(f, gaussian_width=0.015, n_energy_points=1000, ipr_log_scale=False, 
+                 title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'})
     # plot_BS_surface(f, use_index=True,
     #                 title_params={'U0':r'$U$', 'V0':r'$V$',
     #                               'orders':r'$O$', 'cutoff':r'$k_{max}$'})
-    left_str = 'Updated_Geometry/Data/BS_surface_R8_O3_c3.5_U'
+    left_str = 'Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U'
     right_str = '_V0_N5_R8.npz'
-    U_vals = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 1., 2., 5., 10.]
+    U_vals = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5]#, 1., 2., 5., 10.]
     filenames = [left_str + f'{U:.3g}' + right_str for U in U_vals]
     # plot_energy_levels(filenames, title_params={'V0':r'$V$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
-    #                    equally_spaced_x=True, vmax=1)
+    #                    equally_spaced_x=True, vmax=1, ipr_log_scale=True, highlight_idx=184)
     # f = 'Updated_Geometry/Data/I0_U0.05-0.22_O1-7_c3.5.npz'
     # generate_I0_vs_U_data(U_vals=[0.05, 0.1, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22],
     #                       x_min_fit=500, save_filename=f,
