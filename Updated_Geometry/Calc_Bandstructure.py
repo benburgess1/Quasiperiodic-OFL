@@ -870,7 +870,9 @@ def calc_spectral_weights(
     idx_down = np.where(np.isclose(b_down, np.zeros(2), atol=0.001).all(axis=1))[0][0]
     idx_up = np.where(np.isclose(b_up, np.zeros(2), atol=0.001).all(axis=1))[0][0]
 
-    num_evals = kwargs.get('num_evals', 2*N_basis)
+    num_evals = kwargs.get('num_evals', None)
+    if num_evals is None:
+        num_evals = 2*N_basis
 
     q_vals = np.copy(k_vals)
     N_k = q_vals.shape[0]
@@ -1002,13 +1004,56 @@ if __name__ == '__main__':
     G_vects = np.column_stack((np.cos(2*np.pi*l/R),
                          np.sin(2*np.pi*l/R)))
     g_vects = np.roll(G_vects, -1, axis=0) - G_vects
-    orders = np.arange(1, 11)
+    O = 4
     cutoff = None
-    for O in orders:
-        f = f'Updated_Geometry/Data/Basis_O{O}.npz'
-        data = np.load(f)
-        basis = data['basis']
-        print(f'O = {O}, N = {basis[0].shape[0]} x 2')
+    f = f'Updated_Geometry/Data/Basis_O{O}.npz'
+    data = np.load(f)
+    basis = data['basis']
+    basis = calc_basis_states(basis=basis, orders=O, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects, print_progress=False)
+    N_q = basis[0].shape[0]
+    q_K = np.array([0.5, 0.5 * np.tan(np.pi/8)])
+    qx_vals = np.linspace(-1., 1., 31)
+    qy_vals = np.copy(qx_vals)
+    qxx, qyy = np.meshgrid(qx_vals, qy_vals)
+    q_vals = np.column_stack((qxx.flatten(), qyy.flatten()))
+    dq = q_vals - q_K
+    # print(dq.shape)
+
+    idx_min = np.argmin(np.linalg.norm(q_vals-q_K, axis=1))
+    evals, evects = calc_BS_point(q_vals[idx_min], return_evects=True, U0=0.05, V0=0., G_vects=G_vects, g_vects=g_vects, basis=basis, N=5, R=R)
+    np.savez('Updated_Geometry/Data/NearKPoint_U0.05_V0_N5_R8.npz', evals=evals, evects=evects, U0=0.05, V0=0., N=5, R=8,
+             orders=O, cutoff=cutoff, basis=basis)
+    data = np.load('Updated_Geometry/Data/NearKPoint_U0.05_V0_N5_R8.npz')
+    evals = data['evals']
+    evects = data['evects']
+    k0_up_mag = (np.abs(evects)**2)[0,:]
+    k0_down_mag = (np.abs(evects)**2)[N_q,:]
+    k0_up_idxs = np.argsort(k0_up_mag)[::-1]
+    k0_down_idxs = np.argsort(k0_down_mag)[::-1]
+    # evects_sorted_up = evects[:,k0_up_idxs]
+    # evects_sorted_down = evects[:,k0_down_idxs]
+    k0_up_mag_sorted = k0_up_mag[k0_up_idxs]
+    k0_down_mag_sorted = k0_down_mag[k0_down_idxs]
+    evals_up_sorted = evals[k0_up_idxs]
+    evals_down_sorted = evals[k0_down_idxs]
+    N = 10
+    print('k0, up:')
+    for i in range(N):
+        print(f'{evals_up_sorted[i]:.3g}, {k0_up_mag_sorted[i]:.3g}')
+    print('k0, down:')
+    for i in range(N):
+        print(f'{evals_down_sorted[i]:.3g}, {k0_down_mag_sorted[i]:.3g}')
+    # print(f'evals = {evals_up_sorted[:N]}')
+    # print(f'k0 magnitude = {k0_up_mag_sorted[:N]}')
+    # print('k0, down:')
+    # print(f'evals = {evals_down_sorted[:N]}')
+    # print(f'k0 magnitude = {k0_down_mag_sorted[:N]}')
+    
+    # for O in orders:
+    #     f = f'Updated_Geometry/Data/Basis_O{O}.npz'
+    #     data = np.load(f)
+    #     basis = data['basis']
+    #     print(f'O = {O}, N = {basis[0].shape[0]} x 2')
         # print(f'Evaluating O = {O}...')
         # basis = calc_basis_states(basis=None, orders=O, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects,
         #                         print_progress=True)

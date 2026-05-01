@@ -479,16 +479,37 @@ if __name__ == '__main__':
 
 
     ### Constants, parameters etc.
-    U_mag = 0.03
+    U_mag = 0.05
     l = np.arange(8)
     phi0 = 0
     N = 5
     U = -U_mag * np.exp(1j * (phi0 - 2 * np.pi * N * l / 8))
-    V_mag = 0.00
+    V_mag = 0.0
     Dx = 0.0
     Dy = 0.0
     Dz = 0.0
     W = 0.0
+    q_K = np.array([0.5, 0.5 * np.tan(np.pi/8)])
+    qx_vals = np.linspace(-1., 1., 31)
+    qy_vals = np.copy(qx_vals)
+    qxx, qyy = np.meshgrid(qx_vals, qy_vals)
+    q_vals = np.column_stack((qxx.flatten(), qyy.flatten()))
+    dq = q_vals - q_K
+    print(dq.shape)
+
+    idx_min = np.argmin(np.linalg.norm(q_vals-q_K, axis=1))
+    print(q_vals[idx_min,:])
+    print(q_K)
+    print(np.linalg.norm(q_vals[idx_min] - q_K))
+    H = calc_H(q_vals[idx_min], U=U, V=V_mag, G=G)
+    evals, evects = np.linalg.eigh(H)
+    up_mag = np.abs(evects[0,:])**2
+    down_mag = np.abs(evects[8,:])**2
+    for i in range(16):
+        print(f'{evals[i]:.3g}, {up_mag[i]:.3g}, {down_mag[i]:.3g}')
+    # print(up_mag)
+    # print(down_mag)
+
     # for i in range(U.size):
     #     if i % 2 == 0:
     #         U[i] *= 2.
@@ -502,10 +523,10 @@ if __name__ == '__main__':
     k1 = np.array([q_K + (q_M - q_K) * i for i in np.linspace(0, 0.07, 100)])[::-1]
     k2 = np.array([q_K * i for i in np.linspace(1, 0.94, 100)[1:]])
     q_vals = np.vstack((k1, k2))
-    evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
-    filename = f'Updated_Geometry/Data/QBZ_BS_KPoint_U{U_mag:.3g}_V{V_mag:.3g}_N{N}_R8_alt.npz'
-    np.savez(filename, q_vals=q_vals, evals=evals, U=U, U_mag=U_mag, V_mag=V_mag, N=N, R=8, 
-             W=W, Dx=Dx, Dy=Dy, Dz=Dz)
+    # evals = calc_BS_path(q_vals, U=U, V=V_mag, Dx=Dx, Dy=Dy, Dz=Dz, W=W)
+    # filename = f'Updated_Geometry/Data/QBZ_BS_KPoint_U{U_mag:.3g}_V{V_mag:.3g}_N{N}_R8_alt.npz'
+    # np.savez(filename, q_vals=q_vals, evals=evals, U=U, U_mag=U_mag, V_mag=V_mag, N=N, R=8, 
+    #          W=W, Dx=Dx, Dy=Dy, Dz=Dz)
     # f = 'Updated_Geometry/Data/SpectrumTest.npz'
     # data = np.load(f)
     # evals = data['evals'].T
