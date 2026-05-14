@@ -12,6 +12,7 @@ import matplotlib.colors as mcolors
 import Approximant_Bandstructure as ABS
 from matplotlib.patches import Polygon
 import scipy as sp
+from tqdm import tqdm
 # import Plot_Berry_Curvature as PBC
 
 # Calculate reciprocal lattice (G) vectors 
@@ -443,20 +444,22 @@ def calc_curvature_NonAb_fromfile(filename=None, evects_arr=None, n_vals=None,
     curv_vals = np.zeros((1, N_x-1, N_y-1), dtype=np.complex128)
     if gauge_idx is not None:
         evects_arr = fix_gauge(evects_arr, idx=gauge_idx)
-    print('Calculating curvature:')
-    for i in range(N_x-1):
-        for j in range(N_y-1):
-            print(f'Evaluating point {i*(N_y-1) + j + 1} out of ' 
-                + f'{(N_x-1)*(N_y-1)}...' + 10*' ', end='\r')
-            n0 = evects_arr[:,n_vals,i,j]
-            n1 = evects_arr[:,n_vals,i+1,j]
-            n12 = evects_arr[:,n_vals,i+1,j+1]
-            n2 = evects_arr[:,n_vals,i,j+1]
-            curv_vals[0,i,j] = calc_curv_NonAb_point(n0=n0, n1=n1, n12=n12, n2=n2)
-    print('\nDone')
+    # print('Calculating curvature:')
+    with tqdm(total=(N_x-1)*(N_y-1), desc='Evaluating q values') as pbar:
+        for i in range(N_x-1):
+            for j in range(N_y-1):
+                # print(f'Evaluating point {i*(N_y-1) + j + 1} out of ' 
+                #     + f'{(N_x-1)*(N_y-1)}...' + 10*' ', end='\r')
+                n0 = evects_arr[:,n_vals,i,j]
+                n1 = evects_arr[:,n_vals,i+1,j]
+                n12 = evects_arr[:,n_vals,i+1,j+1]
+                n2 = evects_arr[:,n_vals,i,j+1]
+                curv_vals[0,i,j] = calc_curv_NonAb_point(n0=n0, n1=n1, n12=n12, n2=n2)
+                pbar.update(1)
+    # print('\nDone')
     
     if calc_chern:
-        print('Calculating Chern number...')
+        print('Calculating Chern number... ', end='', flush=True)
         C = calc_chern_number(curv_vals=curv_vals, bands=None, sum_bands=sum_bands, patch=patch,
                               qx_vals=qx_vals, qy_vals=qy_vals, shift_q=True)  # Assumes that curv_vals exactly tiles the BZ
         print('Done')

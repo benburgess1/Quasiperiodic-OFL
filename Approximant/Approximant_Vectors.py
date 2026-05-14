@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.patches import Polygon
 # import Approximant_Curvature as AC
-
-l = np.arange(5)
-G_vects_exact = np.column_stack((np.cos(2*np.pi*l/5),
-                                 np.sin(2*np.pi*l/5)))
+R = 8
+l = np.arange(R)
+G_vects_exact = np.column_stack((np.cos(2*np.pi*l/R),
+                                 np.sin(2*np.pi*l/R)))
 
 
 t = (1+np.sqrt(5))/2

@@ -6,11 +6,18 @@ import scipy as sp
 
 def calc_IPR_k(filename=None, evects=None, save_filename='IPR_k.npz', save=False,
                transfer_params=['U0', 'V0', 'N', 'R', 'a', 
-                                'cutoff', 'qx_vals', 'qy_vals']):
+                                'cutoff', 'qx_vals', 'qy_vals'],
+               sum_spin=True):
     if filename is not None:
         data = np.load(filename)
         evects = data['evects']
-    IPR_k = np.sum(np.abs(evects)**4, axis=0)
+    if sum_spin:
+        N_q = evects.shape[0] / 2
+        abs_evects_sq = np.abs(evects)**2
+        psi_spinsummed = abs_evects_sq[:N_q] + abs_evects_sq[N_q:]
+        IPR_k = np.sum(np.abs(psi_spinsummed[:N_q,:])**2, axis=0)
+    else:
+        IPR_k = np.sum(np.abs(evects)**4, axis=0)
     if save:
         save_dict = {p:data[str(p)] for p in transfer_params}
         np.savez(save_filename, IPR_k=IPR_k, **save_dict)

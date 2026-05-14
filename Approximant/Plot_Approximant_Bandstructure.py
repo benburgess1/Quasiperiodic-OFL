@@ -306,24 +306,26 @@ def make_title_str(title_params, data, base_str='', dp=5):
 
 
 if __name__ == '__main__':
-    f = 'Approximant/Data/8Fold/SpectralFunction/Data_GMKG_R8_a7_c2.5_U0.03_N5_V0.0.npz'
-    U = 0.03
-    V = 0.00
-    # f = f'Updated_Geometry/Data/SpectralFunction_GMKG_O3_U{U}_V{V:.3g}_W0.005_N5_R8.npz'
-    # data = np.load(f)
-    # evals_k = data['evals_k']
-    # print(evals_k.shape)
-    f2 = f'Updated_Geometry/Data/QBZ_BS_GMKG_U{U}_V{V:.3g}_N5_R8.npz'
-    # w_vals = np.linspace(0.24, 0.26, 1000)
-    w_vals = np.linspace(-0.05, 0.4, 1000)
-    sigma = 0.001
-    plot_spectral_function(f, calc_new=True, w_vals=w_vals, sigma=sigma,
-                        #    sym_points=None,
-                           sym_points=[(0, r'$\Gamma$'), (99, r'$M$'), (198, r'$K$'), (297, r'$\Gamma$')],
-                           plot_planewave=True, filename_planewave=f2,
-                        #    title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$'}
-                           title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'a':r'$N_a$'}
-                           )
+    f = 'Approximant/Data/8Fold/Localisation/IPR_surface_a3_c3.5_R8_U0.15_V0.05_W0_N5.npz'
+    plot_DoS(f, calc_new=True, dE=0.01, n_occ=14, xlim=(None, 1))
+    # f = 'Approximant/Data/8Fold/SpectralFunction/Data_GMKG_R8_a7_c2.5_U0.03_N5_V0.0.npz'
+    # U = 0.03
+    # V = 0.00
+    # # f = f'Updated_Geometry/Data/SpectralFunction_GMKG_O3_U{U}_V{V:.3g}_W0.005_N5_R8.npz'
+    # # data = np.load(f)
+    # # evals_k = data['evals_k']
+    # # print(evals_k.shape)
+    # f2 = f'Updated_Geometry/Data/QBZ_BS_GMKG_U{U}_V{V:.3g}_N5_R8.npz'
+    # # w_vals = np.linspace(0.24, 0.26, 1000)
+    # w_vals = np.linspace(-0.05, 0.4, 1000)
+    # sigma = 0.001
+    # plot_spectral_function(f, calc_new=True, w_vals=w_vals, sigma=sigma,
+    #                     #    sym_points=None,
+    #                        sym_points=[(0, r'$\Gamma$'), (99, r'$M$'), (198, r'$K$'), (297, r'$\Gamma$')],
+    #                        plot_planewave=True, filename_planewave=f2,
+    #                     #    title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$'}
+    #                        title_params={'U0':r'$U$', 'N':r'$N$', 'V0':r'$V$', 'a':r'$N_a$'}
+    #                        )
     # f = 'Data/BS_approx_a4_GXMG_U0.2_N3_V0.15.npz'
     # f = 'Data/BS_approx_a3_GXMG_U200.0_N1_V150.0.npz'
     # f = 'Data/BS_approx_a3_GXMG_U200.0_N3_V200.0.npz'

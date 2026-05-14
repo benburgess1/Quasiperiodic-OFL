@@ -46,7 +46,7 @@ def plot_basis_states(basis, ms=5):
 
 def calc_H(q, basis=calc_square_basis_states(a=3, cutoff=2.5), U0=0.02, N=1, 
            phi_vals=None, G_vects=AV.square_approximant(a=3), g_vects=None, V0=0., V=None,
-           idx_map=None, R=5, phi0=0.,
+           idx_map=None, R=5, phi0=0., W=0.,
            **kwargs):
     (b_down, b_up) = basis
     N_q = b_down.shape[0]
@@ -62,7 +62,7 @@ def calc_H(q, basis=calc_square_basis_states(a=3, cutoff=2.5), U0=0.02, N=1,
         V = V0 * np.ones(g_vects.shape[0])
     Vc = np.conjugate(V)
     if idx_map is None:
-        for i in range(N_q):
+        for i in tqdm(range(N_q), desc='Evaluating Hamiltonian matrix elements'):
             # Kinetic energy
             H[i,i] = np.sum((q-b_up[i,:])**2)
             H[i+N_q,i+N_q] = np.sum((q-b_down[i,:])**2)
@@ -101,6 +101,20 @@ def calc_H(q, basis=calc_square_basis_states(a=3, cutoff=2.5), U0=0.02, N=1,
                     l = idxs[0]
                     H[j,i+N_q] += U[l]
                     H[i+N_q,j] += Uc[l]
+            # H_W couplings
+            for j in range(N_q):
+                dq = b_up[i] - b_up[j]
+                idxs = np.where(np.isclose(-G_vects, dq, atol=0.001).all(axis=1))[0]
+                if idxs.size == 1:
+                    l = idxs[0]
+                    H[j,i] += W * (-1)**l
+                    H[i,j] += W * (-1)**l
+                dq = b_down[i] - b_down[j]
+                idxs = np.where(np.isclose(-G_vects, dq, atol=0.001).all(axis=1))[0]
+                if idxs.size == 1:
+                    l = idxs[0]
+                    H[j+N_q,i+N_q] += W * (-1)**l
+                    H[i+N_q,j+N_q] += W * (-1)**l
     else:
         for i in range(N_q):
             # Kinetic energy
@@ -203,21 +217,49 @@ def adjust_KE(H, q, basis=calc_square_basis_states(a=3, cutoff=2.5)):
 
 
 
-def calc_BS_point(q=None, return_evects=False, sparse=False, num_evals=20, 
-                  H=None, **kwargs):
+def calc_BS_point(q=None, return_evects=False, sparse=False, num_evals=None, 
+                  H=None, return_ipr=False, **kwargs):
     if H is None:
         H = calc_H(q, **kwargs)
+    if num_evals is None:
+        num_evals = H.shape[0]
+    evects = None
+    ipr = None
     if sparse:
         evals, evects = sp.sparse.linalg.eigsh(H, k=num_evals, which='SA')
         sorted_indices = np.argsort(evals)
         evals = evals[sorted_indices]
         evects = evects[:, sorted_indices]
     else:
-        evals, evects = np.linalg.eigh(H)
-    if return_evects:
-        return evals, evects
+        if return_evects or return_ipr:
+            evals, evects = np.linalg.eigh(H)
+            evals = evals[:num_evals]
+            evects = evects[:, :num_evals]
+        else:
+            evals = np.linalg.eigvalsh(H)[:num_evals]
+    if return_ipr:
+        ipr = calc_ipr_k(evects, **kwargs)
+    return evals, evects, ipr
+    # if return_evects:
+    #     if return_ipr:
+    #         return evals, evects, ipr
+    #     else:
+    #         return evals, evects
+    # elif return_ipr:
+    #     return evals, ipr
+    # else:
+    #     return evals
+    
+
+def calc_ipr_k(evects, sum_spin=True, **kwargs):
+    if sum_spin:
+        N_q = int(evects.shape[0] / 2)
+        abs_evects_sq = np.abs(evects)**2
+        psi_spinsummed = abs_evects_sq[:N_q] + abs_evects_sq[N_q:]
+        IPR_k = np.sum(np.abs(psi_spinsummed[:N_q,:])**2, axis=0)
     else:
-        return evals
+        IPR_k = np.sum(np.abs(evects)**4, axis=0)
+    return IPR_k
     
 
 def calc_BS_line(q_vals, basis=calc_square_basis_states(a=3, cutoff=2.5), 
@@ -244,42 +286,33 @@ def calc_BS_line(q_vals, basis=calc_square_basis_states(a=3, cutoff=2.5),
 
 
 def calc_BS_surface(qx, qy, basis=calc_square_basis_states(a=3, cutoff=2.5),
-                    return_evects=False, idx_map=None,
+                    return_evects=False, idx_map=None, return_ipr=False, 
                     **kwargs):
     nx = qx.size
     ny = qy.size
     N_basis = 2*basis[0].shape[0]
-    if 'num_evals' in kwargs and 'sparse' in kwargs and kwargs.get('sparse'):
-        N_evals = kwargs.get('num_evals')
+    if 'num_evals' in kwargs:# and 'sparse' in kwargs and kwargs.get('sparse'):
+        num_evals = kwargs.get('num_evals')
+        if num_evals is None:
+            num_evals = N_basis
     else:
-        N_evals = N_basis
-        # print(N_evals)
-    E_vals = np.zeros((N_evals,nx,ny))
-    if return_evects:
-        evects_arr = np.zeros((N_basis,N_evals,nx,ny), dtype=np.complex128)
-    print('Evaluating Hamiltonian...')
+        num_evals = N_basis
+    E_vals = np.zeros((num_evals, nx, ny))
+    evects_arr = np.zeros((N_basis, num_evals, nx, ny), dtype=np.complex128) if return_evects else None
+    ipr_arr = np.zeros((num_evals, nx, ny)) if return_ipr else None
     H = calc_H(q=np.array([qx[0],qy[0]]), basis=basis, idx_map=idx_map, **kwargs)
-    # H = adjust_KE(H, q=np.array([qx[0], qy[0]]), basis=basis)
-    print('Done')
-    for i in range(nx):
-        for j in range(ny):
-            print(f'Evaluating q value {i*ny+j+1} out of {nx*ny}...' + 10*' ', 
-                  end='\r')
-            # if i == 0  and j == 0:
-            H = adjust_KE(H, q=np.array([qx[i], qy[j]]), basis=basis)
-            # print(H.shape)
-            # print(basis[0].shape)
-            if return_evects:
-                E_vals[:,i,j],evects_arr[:,:,i,j] = calc_BS_point(H=H, 
-                                                                  basis=basis, 
-                                                                  return_evects=return_evects, 
-                                                                  **kwargs)
-            else:
-                E_vals[:,i,j] = calc_BS_point(H=H, basis=basis, 
-                                              return_evects=return_evects,
-                                              **kwargs)
-    print('\nDone')
-    return E_vals, evects_arr
+    with tqdm(total=nx * ny, desc='Evaluating q values') as pbar:
+        for i in range(nx):     #add progress bar
+            for j in range(ny):
+                H = adjust_KE(H, q=np.array([qx[i], qy[j]]), basis=basis)
+                E_vals[:,i,j], evects, ipr = calc_BS_point(H=H, basis=basis, return_evects=return_evects, 
+                                                            return_ipr=return_ipr, **kwargs)
+                if evects is not None:
+                    evects_arr[:,:,i,j] = evects
+                if ipr is not None:
+                    ipr_arr[:,i,j] = ipr
+                pbar.update(1)
+    return E_vals, evects_arr, ipr_arr
 
 
 def calc_q_GXMG(q_X=None, q_M=None, a=3):
