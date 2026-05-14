@@ -885,16 +885,22 @@ def plot_energy_levels(
 
     for fname in filenames:
         data = np.load(fname)
-        E_vals   = data["E_vals"]           # (N_evals, Nx, Ny)
-        IPR_vals = data["IPR_vals"]         # (N_evals, Nx, Ny)
-        idx_up   = data["k0_up_max_idx"]    # (Nx, Ny)
-        idx_dn   = data["k0_down_max_idx"]  # (Nx, Ny)
         x_val    = float(data[x_parameter])
-
-        E_up   = slice_array(E_vals,   idx_up).ravel()
-        E_dn   = slice_array(E_vals,   idx_dn).ravel()
-        IPR_up = slice_array(IPR_vals, idx_up).ravel()
-        IPR_dn = slice_array(IPR_vals, idx_dn).ravel()
+        try:
+            E_up = data['E_up'].ravel()
+            E_dn = data['E_down'].ravel()
+            IPR_up = data['IPR_up'].ravel()
+            IPR_dn = data['IPR_down'].ravel()
+            
+        except KeyError:
+            E_vals   = data["E_vals"]           # (N_evals, Nx, Ny)
+            IPR_vals = data["IPR_vals"]         # (N_evals, Nx, Ny)
+            idx_up   = data["k0_up_max_idx"]    # (Nx, Ny)
+            idx_dn   = data["k0_down_max_idx"]  # (Nx, Ny)
+            E_up   = slice_array(E_vals,   idx_up).ravel()
+            E_dn   = slice_array(E_vals,   idx_dn).ravel()
+            IPR_up = slice_array(IPR_vals, idx_up).ravel()
+            IPR_dn = slice_array(IPR_vals, idx_dn).ravel()
 
         E_all   = np.concatenate([E_up,   E_dn])
         IPR_all = np.concatenate([IPR_up, IPR_dn])
@@ -968,7 +974,6 @@ def plot_energy_levels(
 
     return fig, ax
 
-
 def plot_ipr_vs_energy(
     filename,
     ax=None,
@@ -980,6 +985,12 @@ def plot_ipr_vs_energy(
     title_params={},
     x_label=r"$E$ / $E_R$",
     y_label=None,
+    highlight_idx=None,
+    distinguish_spin=False,
+    fit_power_law=False,
+    E_min=None,
+    E_max=None,
+    p0=None,
 ):
     """
     Plot IPR vs energy for a single .npz file.
@@ -1014,6 +1025,27 @@ def plot_ipr_vs_energy(
     y_label : str, optional
         y-axis label. If None, defaults to "IPR" or "IPR (log scale)"
         depending on ipr_log_scale.
+    highlight_idx : int, optional
+        Index of states to highlight with vertical lines.
+    distinguish_spin : bool, optional
+        If True, spin-up and spin-down values are plotted in different colours
+        (default False). Must be False when fit_power_law is True.
+    fit_power_law : bool, optional
+        If True, fit y = A * (E - E0)^nu to the data in [E_min, E_max] and
+        overlay the result as a smooth curve with annotated parameters
+        (default False). Forces distinguish_spin=False.
+    E_min : float, optional
+        Lower bound of the energy range used for fitting. Defaults to the
+        minimum of E_all.
+    E_max : float, optional
+        Upper bound of the energy range used for fitting. Defaults to the
+        maximum of E_all.
+    p0 : tuple or dict, optional
+        Initial parameter guesses for the fit.
+        - Tuple: (A, E0, nu) in that order.
+        - Dict: any subset of keys {"A", "E0", "nu"}; unspecified parameters
+          are auto-estimated from the data.
+        If None, all three are auto-estimated.
 
     Returns
     -------
@@ -1022,16 +1054,24 @@ def plot_ipr_vs_energy(
     # ------------------------------------------------------------------
     # Load and slice data
     # ------------------------------------------------------------------
-    data    = np.load(filename)
-    E_vals   = data["E_vals"]           # (N_evals, Nx, Ny)
-    IPR_vals = data["IPR_vals"]         # (N_evals, Nx, Ny)
-    idx_up   = data["k0_up_max_idx"]    # (Nx, Ny)
-    idx_dn   = data["k0_down_max_idx"]  # (Nx, Ny)
+    data = np.load(filename)
+    try:
+        E_up   = data["E_up"].ravel()
+        E_dn   = data["E_down"].ravel()
+        IPR_up = data["IPR_up"].ravel()
+        IPR_dn = data["IPR_down"].ravel()
+    except KeyError:
+        E_vals   = data["E_vals"]
+        IPR_vals = data["IPR_vals"]
+        idx_up   = data["k0_up_max_idx"]
+        idx_dn   = data["k0_down_max_idx"]
+        E_up   = slice_array(E_vals,   idx_up).ravel()
+        E_dn   = slice_array(E_vals,   idx_dn).ravel()
+        IPR_up = slice_array(IPR_vals, idx_up).ravel()
+        IPR_dn = slice_array(IPR_vals, idx_dn).ravel()
 
-    E_all   = np.concatenate([slice_array(E_vals,   idx_up).ravel(),
-                               slice_array(E_vals,   idx_dn).ravel()])
-    IPR_all = np.concatenate([slice_array(IPR_vals, idx_up).ravel(),
-                               slice_array(IPR_vals, idx_dn).ravel()])
+    E_all   = np.concatenate((E_up, E_dn))
+    IPR_all = np.concatenate((IPR_up, IPR_dn))
 
     # ------------------------------------------------------------------
     # Plot
@@ -1041,14 +1081,116 @@ def plot_ipr_vs_energy(
     else:
         fig = ax.get_figure()
 
-    ax.scatter(
-        E_all, IPR_all,
-        c=color,
-        s=marker_size,
-        alpha=alpha,
-        linewidths=0,
-    )
+    if fit_power_law:
+        distinguish_spin = False
 
+    if not distinguish_spin:
+        ax.scatter(
+            E_all, IPR_all,
+            c=color,
+            s=marker_size,
+            alpha=alpha,
+            linewidths=0,
+        )
+    else:
+        ax.scatter(
+            E_up, IPR_up,
+            c="b",
+            s=marker_size,
+            alpha=alpha,
+            linewidths=0,
+            label="Up",
+        )
+        ax.scatter(
+            E_dn, IPR_dn,
+            c="r",
+            s=marker_size,
+            alpha=alpha,
+            linewidths=0,
+            label="Down",
+        )
+        ax.legend()
+
+    if highlight_idx is not None:
+        E_max_up = np.sort(E_up)[highlight_idx]
+        E_max_dn = np.sort(E_dn)[highlight_idx]
+        ax.axvline(x=E_max_up, ls="--", c="r")
+        ax.axvline(x=E_max_dn, ls="--", c="r")
+
+    # ------------------------------------------------------------------
+    # Power-law fit: y = A * (E - E0)^nu
+    # ------------------------------------------------------------------
+    if fit_power_law:
+        e_min = E_min if E_min is not None else E_all.min()
+        e_max = E_max if E_max is not None else E_all.max()
+
+        mask = (E_all >= e_min) & (E_all <= e_max)
+        E_fit   = E_all[mask]
+        IPR_fit = IPR_all[mask]
+
+        if len(E_fit) < 3:
+            raise ValueError(
+                f"Only {len(E_fit)} data points in [{e_min}, {e_max}]; "
+                "cannot fit 3 parameters."
+            )
+
+        def power_law(E, A, E0, nu):
+            return A * np.abs(E - E0) ** -nu
+
+        # --- Build initial guesses ---
+        # Auto-estimates: A ~ median IPR, E0 ~ midpoint, nu ~ 1
+        auto = {
+            "A":  float(np.median(IPR_fit)),
+            "E0": E_fit.min(),
+            "nu": 1.0,
+        }
+        if p0 is None:
+            p0_tuple = (auto["A"], auto["E0"], auto["nu"])
+        elif isinstance(p0, dict):
+            p0_tuple = (
+                p0.get("A",  auto["A"]),
+                p0.get("E0", auto["E0"]),
+                p0.get("nu", auto["nu"]),
+            )
+        else:
+            p0_tuple = tuple(p0)  # assume (A, E0, nu)
+
+        # from scipy.optimize import curve_fit
+        popt, pcov = curve_fit(power_law, E_fit, IPR_fit, p0=p0_tuple, 
+                               bounds=([0, -np.inf, 0], [np.inf, E_fit.min(), np.inf]),
+                               maxfev=1e5,
+                               )
+        A_fit, E0_fit, nu_fit = popt
+        perr = np.sqrt(np.diag(pcov))
+
+        # Overlay smooth fit curve over the fit range
+        E_smooth  = np.linspace(e_min, e_max, 500)
+        IPR_smooth = power_law(E_smooth, *popt)
+        ax.plot(E_smooth, IPR_smooth, color="crimson", lw=2, label="Power-law fit",
+                zorder=1)
+
+        # Annotate with fitted parameters and 1-sigma uncertainties
+        annotation = (
+            r"$y = A\,(E - E_0)^{-\nu}$" + "\n"
+            f"$A$   = {A_fit:.3g} ± {perr[0]:.2g}\n"
+            f"$E_0$ = {E0_fit:.3g} ± {perr[1]:.2g}\n"
+            f"$\\nu$ = {nu_fit:.3g} ± {perr[2]:.2g}"
+        )
+        ax.annotate(
+            annotation,
+            xy=(0.95, 0.95),
+            xycoords="axes fraction",
+            va="top",
+            ha="right",
+            fontsize=9,
+            bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.8),
+        )
+        # title_params[r'$E_{min}$'] = E_min
+        # title_params[r'$E_{max}$'] = E_max
+
+    # ------------------------------------------------------------------
+    # Formatting
+    # ------------------------------------------------------------------
     if ipr_log_scale:
         ax.set_yscale("log")
 
@@ -1057,7 +1199,9 @@ def plot_ipr_vs_energy(
 
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    title_str = make_title_str(title_params, data, base_str='IPR vs Energy')
+    title_str = make_title_str(title_params, data, base_str="IPR vs Energy")
+    if fit_power_law:
+        title_str += r'$, E_{min}$ = ' + f'{E_min:.3g}' + r', $E_{max}$ = ' + f'{E_max:.3g}'
     ax.set_title(title_str)
 
     if plot_fig:
@@ -1220,20 +1364,450 @@ def plot_dos_IPR(
     return fig, ax
 
 
+def plot_ipr_vs_energy_multi(
+    filenames,
+    ax=None,
+    marker_size=3,
+    alpha=0.6,
+    ipr_log_scale=False,
+    plot_fig=True,
+    title_params={},
+    x_label=r"$E$ / $E_R$",
+    y_label=None,
+    label_param="U0",
+    label_param_label=r'$U$',
+    cmap_name="plasma",
+    bin_width=None,
+):
+    """
+    Plot IPR vs energy for multiple .npz files on the same axes,
+    colouring each file's data series differently.
+
+    Parameters
+    ----------
+    filenames : list of str
+        Paths to .npz files, each containing the same structure expected
+        by plot_ipr_vs_energy.
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot onto. A new figure is created if None.
+    marker_size : float, optional
+        Size of scatter/line markers (default 3).
+    alpha : float, optional
+        Opacity of plotted elements (default 0.6).
+    ipr_log_scale : bool, optional
+        If True, the IPR (y) axis is plotted on a log scale (default False).
+    plot_fig : bool, optional
+        Whether to call plt.show() at the end (default True).
+    title_params : dict, optional
+        Passed to make_title_str to build the plot title.
+    x_label : str, optional
+        x-axis label (default r"$E$ / $E_R$").
+    y_label : str, optional
+        y-axis label. Defaults to "IPR" or "IPR (log scale)".
+    label_param : str, optional
+        Key of the parameter stored in each .npz file to use as the
+        legend label for that file (default "U0").
+    label_param_label : str, optional
+        Legend title (default r'$U$').
+    cmap_name : str, optional
+        Name of the matplotlib colormap to sample colours from
+        (default "plasma").
+    bin_width : float, optional
+        Width of energy bins. If provided, data for each file is binned
+        into a common set of bins spanning the global energy range across
+        all files. Each bin is collapsed to the mean IPR, with error bars
+        showing the standard deviation. Raw points are not plotted.
+        If None (default), the raw data is plotted as before.
+
+    Returns
+    -------
+    fig, ax : the figure and axes objects.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.get_figure()
+
+    cmap = plt.get_cmap(cmap_name)
+    colors = [cmap(i / max(len(filenames) - 1, 1)) for i in range(len(filenames))]
+
+    # ------------------------------------------------------------------
+    # Load all data upfront
+    # ------------------------------------------------------------------
+    all_data   = []   # list of dicts with keys: E_all, IPR_all, label, data
+    E_global_min =  np.inf
+    E_global_max = -np.inf
+
+    for filename in filenames:
+        data = np.load(filename)
+
+        try:
+            E_up   = data["E_up"].ravel()
+            E_dn   = data["E_down"].ravel()
+            IPR_up = data["IPR_up"].ravel()
+            IPR_dn = data["IPR_down"].ravel()
+        except KeyError:
+            E_vals   = data["E_vals"]
+            IPR_vals = data["IPR_vals"]
+            idx_up   = data["k0_up_max_idx"]
+            idx_dn   = data["k0_down_max_idx"]
+            E_up   = slice_array(E_vals,   idx_up).ravel()
+            E_dn   = slice_array(E_vals,   idx_dn).ravel()
+            IPR_up = slice_array(IPR_vals, idx_up).ravel()
+            IPR_dn = slice_array(IPR_vals, idx_dn).ravel()
+
+        E_all   = np.concatenate((E_up, E_dn))
+        IPR_all = np.concatenate((IPR_up, IPR_dn))
+
+        sort_mask = np.argsort(E_all)
+        E_all   = E_all[sort_mask]
+        IPR_all = IPR_all[sort_mask]
+
+        E_global_min = min(E_global_min, E_all.min())
+        E_global_max = max(E_global_max, E_all.max())
+
+        try:
+            param_val = data[label_param].item()
+            label = f"{param_val:.3g}"
+        except KeyError:
+            label = filename
+
+        all_data.append(dict(E_all=E_all, IPR_all=IPR_all, label=label, data=data))
+
+    # ------------------------------------------------------------------
+    # Build common bin edges (only needed when bin_width is set)
+    # ------------------------------------------------------------------
+    if bin_width is not None:
+        bin_edges = np.arange(E_global_min, E_global_max + bin_width, bin_width)
+        bin_centres = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+
+    # ------------------------------------------------------------------
+    # Plot
+    # ------------------------------------------------------------------
+    for entry, color in zip(all_data, colors):
+        E_all   = entry["E_all"]
+        IPR_all = entry["IPR_all"]
+        label   = entry["label"]
+
+        if bin_width is None:
+            ax.plot(
+                E_all, IPR_all,
+                c=color,
+                ms=marker_size,
+                alpha=alpha,
+                linewidth=1,
+                label=label,
+                marker='x',
+            )
+        else:
+            # Assign each point to a bin
+            bin_indices = np.digitize(E_all, bin_edges) - 1  # 0-based bin index
+
+            ipr_means = np.full(len(bin_centres), np.nan)
+            ipr_stds  = np.full(len(bin_centres), np.nan)
+
+            for b in range(len(bin_centres)):
+                mask = bin_indices == b
+                if mask.sum() > 0:
+                    ipr_means[b] = IPR_all[mask].mean()
+                    ipr_stds[b]  = IPR_all[mask].std()
+
+            # Only plot bins that contain at least one point
+            valid = ~np.isnan(ipr_means)
+            ax.errorbar(
+                bin_centres[valid],
+                ipr_means[valid],
+                yerr=ipr_stds[valid],
+                color=color,
+                alpha=alpha,
+                linewidth=1,
+                marker='x',
+                markersize=marker_size,
+                capsize=2,
+                label=label,
+            )
+
+    if ipr_log_scale:
+        ax.set_yscale("log")
+
+    if y_label is None:
+        y_label = "IPR (log scale)" if ipr_log_scale else "IPR"
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    title_str = make_title_str(title_params, all_data[-1]["data"], base_str="IPR vs Energy")
+    if bin_width is not None:
+        title_str += r', $\Delta E_{bin}=$' + f'{bin_width:.3g}'
+    ax.set_title(title_str)
+    ax.legend(title=label_param_label)
+
+    if plot_fig:
+        plt.show()
+
+    return fig, ax
+
+
+def plot_max_ipr_vs_param(
+    filenames,
+    x_parameter,
+    ax=None,
+    color="steelblue",
+    marker_size=6,
+    alpha=0.8,
+    x_log_scale=False,
+    y_log_scale=False,
+    plot_fig=True,
+    title_params={},
+    x_label=None,
+    y_label=r"$IPR$",
+    fit_power_law=False,
+    p0=None,
+    fit_with_offset=False,
+):
+    """
+    Plot the maximum IPR across all states against a scalar parameter
+    stored in each file, one point per file.
+
+    Parameters
+    ----------
+    filenames : list of str
+        Paths to .npz files, each containing the same structure expected
+        by plot_ipr_vs_energy.
+    x_parameter : str
+        Key in each .npz file whose scalar value is used as the x coordinate
+        (e.g. "U0", "disorder_strength").
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot onto. A new figure is created if None.
+    color : str, optional
+        Colour of the scatter points and fit curve (default "steelblue").
+    marker_size : float, optional
+        Size of scatter points (default 6).
+    alpha : float, optional
+        Opacity of scatter points (default 0.8).
+    x_log_scale : bool, optional
+        If True, the x axis is plotted on a log scale (default False).
+    y_log_scale : bool, optional
+        If True, the y axis is plotted on a log scale (default False).
+    plot_fig : bool, optional
+        Whether to call plt.show() at the end (default True).
+    title_params : dict, optional
+        Passed to make_title_str to build the plot title.
+    x_label : str, optional
+        x-axis label. Defaults to x_parameter if not provided.
+    y_label : str, optional
+        y-axis label (default "max IPR").
+    fit_power_law : bool, optional
+        If True, fit y = A * x^nu to the data and overlay the result as a
+        smooth curve with annotated parameters (default False).
+    p0 : tuple or dict, optional
+        Initial parameter guesses for the power-law fit.
+        - Tuple: (A, nu) in that order.
+        - Dict: any subset of keys {"A", "nu"}; unspecified parameters
+          are auto-estimated from the data.
+        If None, all parameters are auto-estimated.
+
+    Returns
+    -------
+    fig, ax : the figure and axes objects.
+    """
+    # ------------------------------------------------------------------
+    # Load data from each file
+    # ------------------------------------------------------------------
+    
+
+    if len(filenames) > 1:
+        x_vals    = []
+        max_iprs  = []
+        for filename in filenames:
+            data = np.load(filename)
+
+            try:
+                IPR_up = data["IPR_up"].ravel()
+                IPR_dn = data["IPR_down"].ravel()
+            except KeyError:
+                IPR_vals = data["IPR_vals"]
+                idx_up   = data["k0_up_max_idx"]
+                idx_dn   = data["k0_down_max_idx"]
+                IPR_up   = slice_array(IPR_vals, idx_up).ravel()
+                IPR_dn   = slice_array(IPR_vals, idx_dn).ravel()
+
+            IPR_all = np.concatenate((IPR_up, IPR_dn))
+            if x_parameter == 'N_basis':
+                x_val = data['basis'][0].shape[0]*2
+            else:
+                try:
+                    x_val = data[x_parameter].item()
+                except KeyError:
+                    raise KeyError(
+                        f"Parameter '{x_parameter}' not found in {filename}."
+                    )
+            x_vals.append(x_val)
+            max_iprs.append(IPR_all.max())
+    else:
+        data = np.load(filenames[0])
+        max_iprs = data['IPR_down']
+        x_vals = data[x_parameter]
+
+    x_vals   = np.array(x_vals)
+    max_iprs = np.array(max_iprs)
+
+    # Sort by x for a clean line plot
+    sort_mask = np.argsort(x_vals)
+    x_vals    = x_vals[sort_mask]
+    max_iprs  = max_iprs[sort_mask]
+
+    # ------------------------------------------------------------------
+    # Plot
+    # ------------------------------------------------------------------
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.get_figure()
+
+    ax.scatter(
+        x_vals, max_iprs,
+        c=color,
+        s=marker_size ** 2,
+        alpha=alpha,
+        zorder=3,
+    )
+    ax.plot(
+        x_vals, max_iprs,
+        c=color,
+        alpha=alpha * 0.5,
+        linewidth=1,
+        zorder=2,
+    )
+    # ------------------------------------------------------------------
+    # Power-law fit
+    # ------------------------------------------------------------------
+    if fit_power_law:
+        if len(x_vals) < 2:
+            raise ValueError("Need at least 2 data points to fit a power law.")
+
+        # fit_with_offset = fit_power_law == "offset"  # True if "offset", False if True/plain
+
+        def power_law(x, A, nu):
+            return A * np.abs(x) ** nu
+
+        def power_law_offset(x, A, nu, I0):
+            return A * np.abs(x) ** nu + I0
+
+        # Auto-estimates
+        A_auto  = float(max_iprs[0] / (x_vals[0] ** -1.0)) if x_vals[0] != 0 else 1.0
+        auto = {"A": A_auto, "nu": -1.0, "I0": 0.0}
+
+        if p0 is None:
+            p0_tuple = (auto["A"], auto["nu"]) if not fit_with_offset else (auto["A"], auto["nu"], auto["I0"])
+        elif isinstance(p0, dict):
+            if fit_with_offset:
+                p0_tuple = (p0.get("A", auto["A"]), p0.get("nu", auto["nu"]), p0.get("I0", auto["I0"]))
+            else:
+                p0_tuple = (p0.get("A", auto["A"]), p0.get("nu", auto["nu"]))
+        else:
+            p0_tuple = tuple(p0)
+
+        from scipy.optimize import curve_fit
+
+        # Bounds: 0 <= A < inf, -inf < nu <= 0 (and 0 <= I0 <= 1 if offset)
+        if fit_with_offset:
+            bounds = ([0, -np.inf, 0], [np.inf, 0, 1])
+            popt, pcov = curve_fit(power_law_offset, x_vals, max_iprs, p0=p0_tuple, bounds=bounds)
+            A_fit, nu_fit, I0_fit = popt
+        else:
+            bounds = ([0, -np.inf], [np.inf, 0])
+            popt, pcov = curve_fit(power_law, x_vals, max_iprs, p0=p0_tuple, bounds=bounds)
+            A_fit, nu_fit = popt
+
+        perr = np.sqrt(np.diag(pcov))
+
+        x_smooth   = np.linspace(x_vals.min(), x_vals.max(), 500)
+        ipr_smooth = (power_law_offset if fit_with_offset else power_law)(x_smooth, *popt)
+        ax.plot(
+            x_smooth, ipr_smooth,
+            color="crimson",
+            lw=2,
+            zorder=4,
+        )
+
+        if fit_with_offset:
+            annotation = (
+                r"$y = A\,x^{\nu} + I_0$" + "\n"
+                f"$A$   = {A_fit:.3g} ± {perr[0]:.2g}\n"
+                f"$\\nu$ = {nu_fit:.3g} ± {perr[1]:.2g}\n"
+                f"$I_0$ = {I0_fit:.3g} ± {perr[2]:.2g}"
+            )
+        else:
+            annotation = (
+                r"$y = A\,x^{\nu}$" + "\n"
+                f"$A$   = {A_fit:.3g} ± {perr[0]:.2g}\n"
+                f"$\\nu$ = {nu_fit:.3g} ± {perr[1]:.2g}"
+            )
+
+        ax.annotate(
+            annotation,
+            xy=(0.95, 0.95),
+            xycoords="axes fraction",
+            va="top",
+            ha="right",
+            fontsize=9,
+            bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.8),
+        )
+
+    # ------------------------------------------------------------------
+    # Formatting
+    # ------------------------------------------------------------------
+    if x_log_scale:
+        ax.set_xscale("log")
+    if y_log_scale:
+        ax.set_yscale("log")
+
+    ax.set_xlabel(x_label if x_label is not None else x_parameter)
+    ax.set_ylabel(y_label)
+    title_str = make_title_str(title_params, data, base_str="Max IPR vs " + x_label if x_label is not None else x_parameter)
+    ax.set_title(title_str)
+
+    if plot_fig:
+        plt.show()
+
+    return fig, ax
+
+
 
 if __name__ == '__main__':
-    f = 'Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U0.05_V0_N5_R8.npz'
+    f = 'Updated_Geometry/Data/BS_surface_R8_O6_c3.5_U0.28_V0.05_W0_N5_R8.npz'
     plot_ipr_vs_energy(f, color='b', title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
-                       ipr_log_scale=False)
-    plot_dos_IPR(f, gaussian_width=0.015, n_energy_points=1000, ipr_log_scale=False, 
-                 title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'})
+                       ipr_log_scale=False, highlight_idx=184, distinguish_spin=True, 
+                       fit_power_law=False, E_min=-0.46, E_max=-0.33)
+    # plot_dos_IPR(f, gaussian_width=0.015, n_energy_points=1000, ipr_log_scale=False, 
+    #              title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'})
     # plot_BS_surface(f, use_index=True,
     #                 title_params={'U0':r'$U$', 'V0':r'$V$',
     #                               'orders':r'$O$', 'cutoff':r'$k_{max}$'})
-    left_str = 'Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U'
-    right_str = '_V0_N5_R8.npz'
-    U_vals = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5]#, 1., 2., 5., 10.]
-    filenames = [left_str + f'{U:.3g}' + right_str for U in U_vals]
+    # left_str = 'Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U0.2_V'
+    # right_str = '_W0_N5_R8.npz'
+    # # U_vals = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.5]#, 1., 2., 5., 10.]
+    # # U_vals = [0.1, 0.15, 0.2, 0.22, 0.24, 0.26, 0.28, 0.3]
+    # V_vals = [0.02, 0.04, 0.06, 0.08, 0.1]
+    # # filenames = [left_str + f'{V:.3g}' + right_str for V in V_vals]
+    # filenames = ['Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U0.2_V0_N5_R8.npz']
+    left_str = 'Updated_Geometry/Data/BS_surface_R8_O'
+    right_str = '_c3.5_U0.22_V0.05_W0_N5_R8.npz'
+    O_vals = [2, 3, 4, 5, 6]
+    filenames = [left_str + str(O) + right_str for O in O_vals]
+    # filenames = ['Updated_Geometry/Data/Convergence_IPR_Peak_R8_O2-8_c3.5_U0.25_V0.025_W0_N5_R8.npz']
+    # plot_max_ipr_vs_param(filenames, x_parameter='N_basis', x_label=r'$N_{basis}$',
+    #                       x_log_scale=False, y_log_scale=False,
+    #                       fit_power_law=True, fit_with_offset=True, p0=(5, -0.2, 0.2),
+    #                       title_params={'U0':r'$U$','V0':r'$V$', 'cutoff':r'$k_{max}$'})
+    plot_ipr_vs_energy_multi(filenames, cmap_name='rainbow',
+                             title_params={'U0':r'$U$','V0':r'$V$', 'cutoff':r'$k_{max}$'},
+                             label_param='orders', label_param_label=r'$O$', bin_width=None)
+    # left_str = 'Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U'
+    # right_str = '_V0_W0_N5_R8.npz'
+    # U_vals = [0.12]
+    # for U in U_vals:
+    #     filenames.append(left_str + f'{U:.3g}' + right_str)
     # plot_energy_levels(filenames, title_params={'V0':r'$V$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
     #                    equally_spaced_x=True, vmax=1, ipr_log_scale=True, highlight_idx=184)
     # f = 'Updated_Geometry/Data/I0_U0.05-0.22_O1-7_c3.5.npz'
