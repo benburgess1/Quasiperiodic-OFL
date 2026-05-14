@@ -448,7 +448,7 @@ def calc_H(q, basis, U0=0.02, N=5, R=8,
         V = V0 * np.ones(R)
     Vc = np.conjugate(V)
     if idx_map is None:
-        for i in range(N_q):
+        for i in tqdm(range(N_q), desc='Calculating Hamiltonian matrix elements'):
             # Kinetic energy
             if not zero_KE:
                 H[i,i] = np.sum((q-b_up[i,:])**2)
