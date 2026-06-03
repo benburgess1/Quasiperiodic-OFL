@@ -346,7 +346,6 @@ def plot_xi_vs_O(filename, title_params={}, logx=False, logy=False, fit=None, we
     plt.show()
 
 
-
 if __name__ == '__main__':
     x0 = 26.67
     y0 = 11.05
@@ -366,14 +365,15 @@ if __name__ == '__main__':
     #                       left_str='Updated_Geometry/Data/WF_k00_KE0_O',
     #                       right_str='_cNone_U1_V0_W0_N5_R8.npz',
     #                       save_filename=save_f)
-    plot_xi_vs_O(save_f, title_params={'cutoff':r'$k_{max}$'}, fit='polynomial',
-                 logx=True, logy=True, weighted=True)
+    # plot_xi_vs_O(save_f, title_params={'cutoff':r'$k_{max}$'}, fit='polynomial',
+    #              logx=True, logy=True, weighted=True)
 
 
 
     f1 = 'Updated_Geometry/Data/WF_kG1_O5_c3.5_U1_V0_W0_N5_R8.npz'
-    f1 = 'Updated_Geometry/Data/WF_k00_O5_cNone_U3_V0_W0_N5_R8.npz'
-    f1 = 'Updated_Geometry/Data/WF_k00_KE0_O5_cNone_U1_V0_W0_N5_R8.npz'
+    f1 = 'Updated_Geometry/Data/WF_k00_O5_cNone_U10_V0_W0_N5_R8.npz'
+    f1 = 'Updated_Geometry/Data/WF_k00_O6_cNone_U10_V0_W0.1_N5_R8.npz'
+    # f1 = 'Updated_Geometry/Data/WF_k00_KE0_O5_cNone_U1_V0_W0_N5_R8.npz'
     f2 = 'Updated_Geometry/Data/WF_kG_O4_c2.5_U10_V0_W0_N5_R8.npz'
     f3 = f'Updated_Geometry/Data/BlochVector_R8_U1_N5_V0.npz'
     xmax = 60
@@ -381,22 +381,22 @@ if __name__ == '__main__':
     Nx = 101
     x_vals = np.linspace(-xmax+dx, xmax+dx, Nx)
     y_vals = np.copy(x_vals)
-    # data = np.load(f1)
-    # print(data['evals'][:10])
-    # psi_k = data['psi_k']
-    # print(psi_k.shape)
-    # I_k = np.sum(np.abs(psi_k)**4, axis=0)
-    # print(f'I_k = {np.round(I_k,5)}')
-    # I_loc = 1/psi_k.shape[0]
-    # print(f'Localised = {I_loc:.4g}')
+    data = np.load(f1)
+    print(data['evals'][:10])
+    psi_k = data['psi_k']
+    print(psi_k.shape)
+    I_k = np.sum(np.abs(psi_k)**4, axis=0)
+    print(f'I_k = {np.round(I_k,5)}')
+    I_loc = 1/psi_k.shape[0]
+    print(f'Localised = {I_loc:.4g}')
     # K: 28:32
     # M: 32:34
     # x_vals = np.linspace(25, 28, Nx)
     # y_vals = np.linspace(9.5, 12.5, Nx)
     # print(x_vals[1] - x_vals[0])
-    # plot_file_density(f1, x_vals, y_vals, idx=[0,1], normalise=False,
-    #                   title_params={'U0':r'$U$', 'V0':r'$V$',
-    #                                 'orders':r'$O$', 'cutoff':r'$k_{max}$'})
+    plot_file_density(f1, x_vals, y_vals, idx=[0], normalise=False,
+                      title_params={'U0':r'$U$', 'V0':r'$V$',
+                                    'orders':r'$O$', 'cutoff':r'$k_{max}$'})
     
     # plot_density_vs_potential(x_vals, y=-26.5, density_filenames=[f1, f2], potential_filename=f3, idx=[0],
     #                           V_factor=2)

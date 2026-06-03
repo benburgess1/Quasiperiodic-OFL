@@ -1773,12 +1773,104 @@ def plot_max_ipr_vs_param(
     return fig, ax
 
 
+def plot_nu_vs_energy(
+    filename,
+    ax=None,
+    color="steelblue",
+    marker_size=5,
+    alpha=0.8,
+    capsize=3,
+    y_log_scale=False,
+    plot_fig=True,
+    title_params={},
+    x_label=r"$E$ / $E_R$",
+    y_label=r"$\nu$",
+):
+    """
+    Plot the power-law exponent nu vs energy from an output file produced
+    by fit_ipr_powerlaw_vs_param.
+
+    Parameters
+    ----------
+    filename : str
+        Path to a .npz file containing:
+            bin_energies : energies of bins where fits were performed
+            nu_vals      : fitted exponent nu per bin
+            nu_errs      : 1-sigma uncertainty on nu per bin
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot onto. A new figure is created if None.
+    color : str, optional
+        Colour of the plotted points and error bars (default "steelblue").
+    marker_size : float, optional
+        Size of markers (default 5).
+    alpha : float, optional
+        Opacity of plotted elements (default 0.8).
+    capsize : float, optional
+        Length of error bar caps in points (default 3).
+    y_log_scale : bool, optional
+        If True, the y axis is plotted on a log scale (default False).
+    plot_fig : bool, optional
+        Whether to call plt.show() at the end (default True).
+    title_params : dict, optional
+        Passed to make_title_str to build the plot title.
+    x_label : str, optional
+        x-axis label (default r"$E$ / $E_R$").
+    y_label : str, optional
+        y-axis label (default r"$\nu$").
+
+    Returns
+    -------
+    fig, ax : the figure and axes objects.
+    """
+    # ------------------------------------------------------------------
+    # Load data
+    # ------------------------------------------------------------------
+    data         = np.load(filename)
+    bin_energies = data["bin_energies"]
+    nu_vals      = data["nu_vals"]
+    nu_errs      = data["nu_errs"]
+
+    # ------------------------------------------------------------------
+    # Plot
+    # ------------------------------------------------------------------
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.get_figure()
+
+    ax.errorbar(
+        bin_energies,
+        nu_vals,
+        yerr=nu_errs,
+        color=color,
+        alpha=alpha,
+        marker='o',
+        markersize=marker_size,
+        linewidth=1,
+        capsize=capsize,
+        linestyle='-',
+    )
+
+    if y_log_scale:
+        ax.set_yscale("log")
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    title_str = make_title_str(title_params, data, base_str=r"IPR Scaling Exponent")
+    ax.set_title(title_str)
+
+    if plot_fig:
+        plt.show()
+
+    return fig, ax
+
+
 
 if __name__ == '__main__':
-    f = 'Updated_Geometry/Data/BS_surface_R8_O6_c3.5_U0.28_V0.05_W0_N5_R8.npz'
-    plot_ipr_vs_energy(f, color='b', title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
-                       ipr_log_scale=False, highlight_idx=184, distinguish_spin=True, 
-                       fit_power_law=False, E_min=-0.46, E_max=-0.33)
+    f = 'Updated_Geometry/Data/BS_surface_R8_O6_c3.5_U0.3_V0.05_W0_N5_R8.npz'
+    # plot_ipr_vs_energy(f, color='b', title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'},
+    #                    ipr_log_scale=False, highlight_idx=184, distinguish_spin=True, 
+    #                    fit_power_law=False, E_min=-0.46, E_max=-0.33)
     # plot_dos_IPR(f, gaussian_width=0.015, n_energy_points=1000, ipr_log_scale=False, 
     #              title_params={'U0':r'$U$', 'V0':r'$V$', 'W':r'$W$', 'orders':r'$O$', 'cutoff':r'$k_{max}$'})
     # plot_BS_surface(f, use_index=True,
@@ -1792,7 +1884,7 @@ if __name__ == '__main__':
     # # filenames = [left_str + f'{V:.3g}' + right_str for V in V_vals]
     # filenames = ['Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U0.2_V0_N5_R8.npz']
     left_str = 'Updated_Geometry/Data/BS_surface_R8_O'
-    right_str = '_c3.5_U0.22_V0.05_W0_N5_R8.npz'
+    right_str = '_c3.5_U0.2_V0_W0.05_N5_R8.npz'
     O_vals = [2, 3, 4, 5, 6]
     filenames = [left_str + str(O) + right_str for O in O_vals]
     # filenames = ['Updated_Geometry/Data/Convergence_IPR_Peak_R8_O2-8_c3.5_U0.25_V0.025_W0_N5_R8.npz']
@@ -1800,9 +1892,11 @@ if __name__ == '__main__':
     #                       x_log_scale=False, y_log_scale=False,
     #                       fit_power_law=True, fit_with_offset=True, p0=(5, -0.2, 0.2),
     #                       title_params={'U0':r'$U$','V0':r'$V$', 'cutoff':r'$k_{max}$'})
-    plot_ipr_vs_energy_multi(filenames, cmap_name='rainbow',
-                             title_params={'U0':r'$U$','V0':r'$V$', 'cutoff':r'$k_{max}$'},
-                             label_param='orders', label_param_label=r'$O$', bin_width=None)
+    # plot_ipr_vs_energy_multi(filenames, cmap_name='rainbow',
+    #                          title_params={'U0':r'$U$','V0':r'$V$', 'W':r'$W$', 'cutoff':r'$k_{max}$'},
+    #                          label_param='orders', label_param_label=r'$O$', bin_width=0.05)
+    # f = 'Updated_Geometry/Data/Exponents_R8_U0.2_V0_W0.05_N5.npz'
+    # plot_nu_vs_energy(f, title_params={'U0':r'$U$','V0':r'$V$', 'W':r'$W$', 'cutoff':r'$k_{max}$'})
     # left_str = 'Updated_Geometry/Data/BS_surface_R8_O4_c3.5_U'
     # right_str = '_V0_W0_N5_R8.npz'
     # U_vals = [0.12]

@@ -561,10 +561,10 @@ def calc_H(q, basis, U0=0.02, N=5, R=8,
 
 
 def calc_BS_point(q=None, return_evects=False, num_evals=None, 
-                  H=None, **kwargs):
+                  H=None, sparse=False, **kwargs):
     if H is None:
         H = calc_H(q, **kwargs)
-    if num_evals is not None:
+    if sparse:
         evals, evects = sp.sparse.linalg.eigsh(H, k=num_evals, which='SA')
         sorted_indices = np.argsort(evals)
         evals = evals[sorted_indices]
@@ -573,6 +573,9 @@ def calc_BS_point(q=None, return_evects=False, num_evals=None,
         # print(H.shape)
         evals, evects = np.linalg.eigh(H)
         # print(evals.shape,evects.shape)
+    if num_evals is not None:
+        evals = evals[:num_evals]
+        evects = evects[:,:num_evals]
     if return_evects:
         return evals, evects
     else:
@@ -995,54 +998,273 @@ def slice_array(arr, idxs):
     i, j = np.meshgrid(np.arange(Nx), np.arange(Ny), indexing='ij')
     return arr[idxs, i, j]
 
+
+def fit_ipr_powerlaw_vs_param(
+    filenames,
+    x_parameter,
+    bin_width,
+    output_filename,
+    transfer_params=(),
+    N_min=3,
+    p0=None,
+    bounds=([0, -np.inf], [np.inf, 0]),
+):
+    """
+    For a set of .npz files, bin the IPR vs energy data into a common set
+    of energy bins. Within each bin, each file contributes at most one point:
+    the mean IPR (with std as uncertainty). A power law y = A * x^nu is then
+    fitted across files for each bin that has at least N_min contributing files,
+    weighted by the per-file IPR standard deviations.
+
+    Results are saved to a new .npz file.
+
+    Parameters
+    ----------
+    filenames : list of str
+        Paths to .npz files, each containing IPR/energy data and x_parameter.
+    x_parameter : str
+        Key in each .npz file whose scalar value is used as the x coordinate
+        for the power-law fit (e.g. "U0").
+    bin_width : float
+        Width of energy bins. Bins span the global energy range across all files.
+    output_filename : str
+        Path to the output .npz file.
+    transfer_params : list or tuple of str, optional
+        Keys to copy from the last loaded data file into the output .npz.
+    N_min : int, optional
+        Minimum number of files that must contribute a point to a bin for
+        the fit to be performed (default 3).
+    p0 : tuple or dict, optional
+        Initial guesses for (A, nu). Dict may contain keys "A" and/or "nu".
+        If None, A is auto-estimated and nu defaults to -1.
+    bounds : 2-tuple of array-like, optional
+        Bounds for (A, nu) passed to scipy.optimize.curve_fit.
+        Default: A in [0, inf), nu in (-inf, 0].
+
+    Returns
+    -------
+    dict with keys:
+        bin_energies  : bin centres where fits were performed
+        A_vals        : fitted prefactor A per bin
+        A_errs        : 1-sigma uncertainty on A per bin
+        nu_vals       : fitted exponent nu per bin
+        nu_errs       : 1-sigma uncertainty on nu per bin
+    """
+    from scipy.optimize import curve_fit
+
+    def power_law(x, A, nu):
+        return A * np.abs(x) ** nu
+
+    # ------------------------------------------------------------------
+    # Load all files: extract x value and (E_all, IPR_all)
+    # ------------------------------------------------------------------
+    file_records = []   # list of dicts: x_val, E_all, IPR_all
+    E_global_min =  np.inf
+    E_global_max = -np.inf
+    last_data    = None
+
+    for filename in filenames:
+        data = np.load(filename)
+        last_data = data
+
+        try:
+            E_up   = data["E_up"].ravel()
+            E_dn   = data["E_down"].ravel()
+            IPR_up = data["IPR_up"].ravel()
+            IPR_dn = data["IPR_down"].ravel()
+        except KeyError:
+            E_vals   = data["E_vals"]
+            IPR_vals = data["IPR_vals"]
+            idx_up   = data["k0_up_max_idx"]
+            idx_dn   = data["k0_down_max_idx"]
+            E_up   = slice_array(E_vals,   idx_up).ravel()
+            E_dn   = slice_array(E_vals,   idx_dn).ravel()
+            IPR_up = slice_array(IPR_vals, idx_up).ravel()
+            IPR_dn = slice_array(IPR_vals, idx_dn).ravel()
+
+        E_all   = np.concatenate((E_up, E_dn))
+        IPR_all = np.concatenate((IPR_up, IPR_dn))
+
+        try:
+            x_val = data[x_parameter].item()
+        except KeyError:
+            if x_parameter == 'N_basis':
+                x_val = data['basis'][0].shape[0] * 2
+            else:
+                raise KeyError(f"Parameter '{x_parameter}' not found in {filename}.")
+
+        E_global_min = min(E_global_min, E_all.min())
+        E_global_max = max(E_global_max, E_all.max())
+
+        file_records.append(dict(x_val=x_val, E_all=E_all, IPR_all=IPR_all))
+
+    # ------------------------------------------------------------------
+    # Build common bin edges and centres
+    # ------------------------------------------------------------------
+    bin_edges   = np.arange(E_global_min, E_global_max + bin_width, bin_width)
+    bin_centres = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    n_bins      = len(bin_centres)
+
+    # ------------------------------------------------------------------
+    # For each file, collapse each bin to (mean_IPR, std_IPR)
+    # Shape of bin_means, bin_stds: (n_files, n_bins), NaN where no points
+    # ------------------------------------------------------------------
+    n_files   = len(file_records)
+    bin_means = np.full((n_files, n_bins), np.nan)
+    bin_stds  = np.full((n_files, n_bins), np.nan)
+    x_vals    = np.array([r["x_val"] for r in file_records])
+
+    for f_idx, record in enumerate(file_records):
+        bin_indices = np.digitize(record["E_all"], bin_edges) - 1  # 0-based
+        for b in range(n_bins):
+            mask = bin_indices == b
+            if mask.sum() > 0:
+                bin_means[f_idx, b] = record["IPR_all"][mask].mean()
+                bin_stds[f_idx, b]  = record["IPR_all"][mask].std()
+
+    # ------------------------------------------------------------------
+    # Auto p0 estimates
+    # ------------------------------------------------------------------
+    auto = {"A": 1.0, "nu": -1.0}
+    if p0 is None:
+        p0_base = (auto["A"], auto["nu"])
+    elif isinstance(p0, dict):
+        p0_base = (p0.get("A", auto["A"]), p0.get("nu", auto["nu"]))
+    else:
+        p0_base = tuple(p0)
+
+    # ------------------------------------------------------------------
+    # Per-bin power-law fit
+    # ------------------------------------------------------------------
+    result_energies = []
+    result_A        = []
+    result_A_err    = []
+    result_nu       = []
+    result_nu_err   = []
+
+    for b in range(n_bins):
+        # Which files have a valid (non-NaN) point in this bin?
+        valid_mask = ~np.isnan(bin_means[:, b])
+        n_valid    = valid_mask.sum()
+
+        if n_valid < N_min:
+            continue
+
+        x_fit   = x_vals[valid_mask]
+        y_fit   = bin_means[valid_mask, b]
+        y_err   = bin_stds[valid_mask, b]
+
+        # Replace any zero stds (single-point bins) with a small value
+        # so curve_fit sigma doesn't break
+        y_err   = np.where(y_err == 0, 1e-10, y_err)
+
+        try:
+            popt, pcov = curve_fit(
+                power_law, x_fit, y_fit,
+                p0=p0_base,
+                sigma=y_err,
+                absolute_sigma=True,
+                bounds=bounds,
+            )
+        except RuntimeError:
+            # Fit did not converge; skip this bin
+            continue
+
+        perr = np.sqrt(np.diag(pcov))
+
+        result_energies.append(bin_centres[b])
+        result_A.append(popt[0])
+        result_A_err.append(perr[0])
+        result_nu.append(popt[1])
+        result_nu_err.append(perr[1])
+
+    result_energies = np.array(result_energies)
+    result_A        = np.array(result_A)
+    result_A_err    = np.array(result_A_err)
+    result_nu       = np.array(result_nu)
+    result_nu_err   = np.array(result_nu_err)
+
+    # ------------------------------------------------------------------
+    # Save results
+    # ------------------------------------------------------------------
+    save_dict = {p: last_data[p] for p in transfer_params if p in last_data}
+    save_dict.update({
+        "bin_energies": result_energies,
+        "A_vals":       result_A,
+        "A_errs":       result_A_err,
+        "nu_vals":      result_nu,
+        "nu_errs":      result_nu_err,
+        "bin_width":    bin_width,
+    })
+    np.savez(output_filename, **save_dict)
+
+    print(f"Saved {len(result_energies)} fitted bins to '{output_filename}'.")
+
+    return dict(
+        bin_energies=result_energies,
+        A_vals=result_A,
+        A_errs=result_A_err,
+        nu_vals=result_nu,
+        nu_errs=result_nu_err,
+    )
+        
+
 if __name__ == '__main__':
+    U = 0.2
+    left_str = 'Updated_Geometry/Data/BS_surface_R8_O'
+    right_str = f'_c3.5_U{U:.4g}_V0_W0.05_N5_R8.npz'
+    O_vals = [2, 3, 4, 5, 6]
+    filenames = [left_str + str(O) + right_str for O in O_vals]
+    f = f'Updated_Geometry/Data/Exponents_R8_U{U:.4g}_V0_W0.05_N5.npz'
+    fit_ipr_powerlaw_vs_param(filenames, x_parameter='N_basis', bin_width=0.05, output_filename=f,
+                              transfer_params=['U0', 'V0', 'W', 'N', 'R', 'cutoff'], N_min=3)
 
     # f = 'Updated_Geometry/Data/BS_Surface_b1_R8_U20.0_N5_V0.0_.npz'
     # select_physical_bands(filename=f, save=True)
-    R = 8
-    l = np.arange(R)
-    G_vects = np.column_stack((np.cos(2*np.pi*l/R),
-                         np.sin(2*np.pi*l/R)))
-    g_vects = np.roll(G_vects, -1, axis=0) - G_vects
-    O = 4
-    cutoff = None
-    f = f'Updated_Geometry/Data/Basis_O{O}.npz'
-    data = np.load(f)
-    basis = data['basis']
-    basis = calc_basis_states(basis=basis, orders=O, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects, print_progress=False)
-    N_q = basis[0].shape[0]
-    q_K = np.array([0.5, 0.5 * np.tan(np.pi/8)])
-    qx_vals = np.linspace(-1., 1., 31)
-    qy_vals = np.copy(qx_vals)
-    qxx, qyy = np.meshgrid(qx_vals, qy_vals)
-    q_vals = np.column_stack((qxx.flatten(), qyy.flatten()))
-    dq = q_vals - q_K
-    # print(dq.shape)
+    # R = 8
+    # l = np.arange(R)
+    # G_vects = np.column_stack((np.cos(2*np.pi*l/R),
+    #                      np.sin(2*np.pi*l/R)))
+    # g_vects = np.roll(G_vects, -1, axis=0) - G_vects
+    # O = 4
+    # cutoff = None
+    # f = f'Updated_Geometry/Data/Basis_O{O}.npz'
+    # data = np.load(f)
+    # basis = data['basis']
+    # basis = calc_basis_states(basis=basis, orders=O, cutoff=cutoff, G_vects=G_vects, g_vects=g_vects, print_progress=False)
+    # N_q = basis[0].shape[0]
+    # q_K = np.array([0.5, 0.5 * np.tan(np.pi/8)])
+    # qx_vals = np.linspace(-1., 1., 31)
+    # qy_vals = np.copy(qx_vals)
+    # qxx, qyy = np.meshgrid(qx_vals, qy_vals)
+    # q_vals = np.column_stack((qxx.flatten(), qyy.flatten()))
+    # dq = q_vals - q_K
+    # # print(dq.shape)
 
-    idx_min = np.argmin(np.linalg.norm(q_vals-q_K, axis=1))
-    evals, evects = calc_BS_point(q_vals[idx_min], return_evects=True, U0=0.05, V0=0., G_vects=G_vects, g_vects=g_vects, basis=basis, N=5, R=R)
-    np.savez('Updated_Geometry/Data/NearKPoint_U0.05_V0_N5_R8.npz', evals=evals, evects=evects, U0=0.05, V0=0., N=5, R=8,
-             orders=O, cutoff=cutoff, basis=basis)
-    data = np.load('Updated_Geometry/Data/NearKPoint_U0.05_V0_N5_R8.npz')
-    evals = data['evals']
-    evects = data['evects']
-    k0_up_mag = (np.abs(evects)**2)[0,:]
-    k0_down_mag = (np.abs(evects)**2)[N_q,:]
-    k0_up_idxs = np.argsort(k0_up_mag)[::-1]
-    k0_down_idxs = np.argsort(k0_down_mag)[::-1]
-    # evects_sorted_up = evects[:,k0_up_idxs]
-    # evects_sorted_down = evects[:,k0_down_idxs]
-    k0_up_mag_sorted = k0_up_mag[k0_up_idxs]
-    k0_down_mag_sorted = k0_down_mag[k0_down_idxs]
-    evals_up_sorted = evals[k0_up_idxs]
-    evals_down_sorted = evals[k0_down_idxs]
-    N = 10
-    print('k0, up:')
-    for i in range(N):
-        print(f'{evals_up_sorted[i]:.3g}, {k0_up_mag_sorted[i]:.3g}')
-    print('k0, down:')
-    for i in range(N):
-        print(f'{evals_down_sorted[i]:.3g}, {k0_down_mag_sorted[i]:.3g}')
+    # idx_min = np.argmin(np.linalg.norm(q_vals-q_K, axis=1))
+    # evals, evects = calc_BS_point(q_vals[idx_min], return_evects=True, U0=0.05, V0=0., G_vects=G_vects, g_vects=g_vects, basis=basis, N=5, R=R)
+    # np.savez('Updated_Geometry/Data/NearKPoint_U0.05_V0_N5_R8.npz', evals=evals, evects=evects, U0=0.05, V0=0., N=5, R=8,
+    #          orders=O, cutoff=cutoff, basis=basis)
+    # data = np.load('Updated_Geometry/Data/NearKPoint_U0.05_V0_N5_R8.npz')
+    # evals = data['evals']
+    # evects = data['evects']
+    # k0_up_mag = (np.abs(evects)**2)[0,:]
+    # k0_down_mag = (np.abs(evects)**2)[N_q,:]
+    # k0_up_idxs = np.argsort(k0_up_mag)[::-1]
+    # k0_down_idxs = np.argsort(k0_down_mag)[::-1]
+    # # evects_sorted_up = evects[:,k0_up_idxs]
+    # # evects_sorted_down = evects[:,k0_down_idxs]
+    # k0_up_mag_sorted = k0_up_mag[k0_up_idxs]
+    # k0_down_mag_sorted = k0_down_mag[k0_down_idxs]
+    # evals_up_sorted = evals[k0_up_idxs]
+    # evals_down_sorted = evals[k0_down_idxs]
+    # N = 10
+    # print('k0, up:')
+    # for i in range(N):
+    #     print(f'{evals_up_sorted[i]:.3g}, {k0_up_mag_sorted[i]:.3g}')
+    # print('k0, down:')
+    # for i in range(N):
+    #     print(f'{evals_down_sorted[i]:.3g}, {k0_down_mag_sorted[i]:.3g}')
     # print(f'evals = {evals_up_sorted[:N]}')
     # print(f'k0 magnitude = {k0_up_mag_sorted[:N]}')
     # print('k0, down:')

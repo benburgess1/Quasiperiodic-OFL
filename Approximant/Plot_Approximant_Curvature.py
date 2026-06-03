@@ -312,10 +312,10 @@ if __name__ == '__main__':
     # f = 'Approximant/Data/8Fold/Old_Data/Data_R8_a3_c2.5_U0.1_N2_V0.05_fine.npz'
     # f = 'Approximant/Data/8Fold/Eigenvectors/Data_R8_a3_c2.5_U0.3_N5_V0.05.npz'
     # f = 'Approximant/Data/8Fold/Eigenvectors/Data_Multiband_R8_a3_c2.5_U0.3_N5_V0.12.npz'
-    f = 'Approximant/Data/8Fold/Localisation/IPR_surface_a3_c3.5_R8_U0.15_V0.05_W0_N5.npz'
+    f = 'Approximant/Data/8Fold/Localisation/IPR_surface_a4_c3.5_R8_U0.24_V0.05_W0_N5.npz'
     plot_curv_contour(f, bands=None, plot_BZ=False, bands_in_title=True,
                     plot_abs=False, plot_log=False, patch=None, chern=True,
-                    inside_BZ=False, scale_factor=-1., shift_q=True, a=3)
+                    inside_BZ=False, scale_factor=-1., shift_q=True)
     # data = np.load(f)
     # print(data['max_idx'])
     # curv_vals = data['curv_vals']

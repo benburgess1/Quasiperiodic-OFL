@@ -119,6 +119,8 @@ def plot_DoS(filename, plot_title=True, scalefactor=1., xlim=None,
             E_vals = data['E_vals_surf']
         elif 'E_vals' in data:
             E_vals = data['E_vals']
+        if 'max_idx' in data:
+            n_occ = data['max_idx'] + 1
         E_max = np.max(E_vals[np.arange(n_occ),:,:])
         ax.axvline(x=E_max, color='r', ls='--', label=r'$E_{max}$')
         ax.legend()
@@ -304,10 +306,186 @@ def make_title_str(title_params, data, base_str='', dp=5):
     return base_str
 
 
+def plot_ipr_vs_energy_multi(
+    filenames,
+    ax=None,
+    marker_size=3,
+    alpha=0.6,
+    linewidth=1,
+    ipr_log_scale=False,
+    plot_fig=True,
+    title_params={},
+    x_label=r"$E$ / $E_R$",
+    y_label=None,
+    label_param="U0",
+    label_param_label=r'$U$',
+    cmap_name="plasma",
+    bin_width=None,
+):
+    """
+    Plot IPR vs energy for multiple .npz files on the same axes,
+    colouring each file's data series differently.
+
+    Parameters
+    ----------
+    filenames : list of str
+        Paths to .npz files, each containing the same structure expected
+        by plot_ipr_vs_energy.
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot onto. A new figure is created if None.
+    marker_size : float, optional
+        Size of scatter/line markers (default 3).
+    alpha : float, optional
+        Opacity of plotted elements (default 0.6).
+    linewidth : float, optional
+        Linewidth of plotted line (default 1).
+    ipr_log_scale : bool, optional
+        If True, the IPR (y) axis is plotted on a log scale (default False).
+    plot_fig : bool, optional
+        Whether to call plt.show() at the end (default True).
+    title_params : dict, optional
+        Passed to make_title_str to build the plot title.
+    x_label : str, optional
+        x-axis label (default r"$E$ / $E_R$").
+    y_label : str, optional
+        y-axis label. Defaults to "IPR" or "IPR (log scale)".
+    label_param : str, optional
+        Key of the parameter stored in each .npz file to use as the
+        legend label for that file (default "U0").
+    label_param_label : str, optional
+        Legend title (default r'$U$').
+    cmap_name : str, optional
+        Name of the matplotlib colormap to sample colours from
+        (default "plasma").
+    bin_width : float, optional
+        Width of energy bins. If provided, data for each file is binned
+        into a common set of bins spanning the global energy range across
+        all files. Each bin is collapsed to the mean IPR, with error bars
+        showing the standard deviation. Raw points are not plotted.
+        If None (default), the raw data is plotted as before.
+
+    Returns
+    -------
+    fig, ax : the figure and axes objects.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.get_figure()
+
+    cmap = plt.get_cmap(cmap_name)
+    colors = [cmap(i / max(len(filenames) - 1, 1)) for i in range(len(filenames))]
+
+    # ------------------------------------------------------------------
+    # Load all data upfront
+    # ------------------------------------------------------------------
+    all_data   = []   # list of dicts with keys: E_all, IPR_all, label, data
+    E_global_min = np.inf
+    E_global_max = -np.inf
+
+    for filename in filenames:
+        data = np.load(filename)
+        E_all = data['E_vals'].ravel()
+        IPR_all = data['ipr_vals'].ravel()
+
+        sort_mask = np.argsort(E_all)
+        E_all   = E_all[sort_mask]
+        IPR_all = IPR_all[sort_mask]
+
+        E_global_min = min(E_global_min, E_all.min())
+        E_global_max = max(E_global_max, E_all.max())
+
+        try:
+            param_val = data[label_param].item()
+            label = f"{param_val:.3g}"
+        except KeyError:
+            label = filename
+
+        all_data.append(dict(E_all=E_all, IPR_all=IPR_all, label=label, data=data))
+
+    # ------------------------------------------------------------------
+    # Build common bin edges (only needed when bin_width is set)
+    # ------------------------------------------------------------------
+    if bin_width is not None:
+        bin_edges = np.arange(E_global_min, E_global_max + bin_width, bin_width)
+        bin_centres = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+
+    # ------------------------------------------------------------------
+    # Plot
+    # ------------------------------------------------------------------
+    for entry, color in zip(all_data, colors):
+        E_all   = entry["E_all"]
+        IPR_all = entry["IPR_all"]
+        label   = entry["label"]
+
+        if bin_width is None:
+            ax.plot(
+                E_all, IPR_all,
+                c=color,
+                ms=marker_size,
+                alpha=alpha,
+                linewidth=linewidth,
+                label=label,
+                marker='x',
+            )
+        else:
+            # Assign each point to a bin
+            bin_indices = np.digitize(E_all, bin_edges) - 1  # 0-based bin index
+
+            ipr_means = np.full(len(bin_centres), np.nan)
+            ipr_stds  = np.full(len(bin_centres), np.nan)
+
+            for b in range(len(bin_centres)):
+                mask = bin_indices == b
+                if mask.sum() > 0:
+                    ipr_means[b] = IPR_all[mask].mean()
+                    ipr_stds[b]  = IPR_all[mask].std()
+
+            # Only plot bins that contain at least one point
+            valid = ~np.isnan(ipr_means)
+            ax.errorbar(
+                bin_centres[valid],
+                ipr_means[valid],
+                yerr=ipr_stds[valid],
+                color=color,
+                alpha=alpha,
+                linewidth=linewidth,
+                marker='x',
+                markersize=marker_size,
+                capsize=2,
+                label=label,
+            )
+
+    if ipr_log_scale:
+        ax.set_yscale("log")
+
+    if y_label is None:
+        y_label = "IPR (log scale)" if ipr_log_scale else "IPR"
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    title_str = make_title_str(title_params, all_data[-1]["data"], base_str="IPR vs Energy")
+    if bin_width is not None:
+        title_str += r', $\Delta E_{bin}=$' + f'{bin_width:.3g}'
+    ax.set_title(title_str)
+    ax.legend(title=label_param_label)
+
+    if plot_fig:
+        plt.show()
+
+    return fig, ax
+
 
 if __name__ == '__main__':
-    f = 'Approximant/Data/8Fold/Localisation/IPR_surface_a3_c3.5_R8_U0.15_V0.05_W0_N5.npz'
-    plot_DoS(f, calc_new=True, dE=0.01, n_occ=14, xlim=(None, 1))
+    f = 'Approximant/Data/8Fold/Localisation/IPR_surface_a4_c3.5_R8_U0.15_V0.05_W0_N5.npz'
+    # plot_DoS(f, calc_new=True, dE=0.01, n_occ=56, xlim=(None, 1))
+    left_str = 'Approximant/Data/8Fold/Localisation/IPR_surface_a'
+    right_str = '_c3.5_R8_U0.15_V0.05_W0_N5.npz'
+    a_vals = [7, 6, 5, 4, 3]
+    filenames = [left_str + str(a) + right_str for a in a_vals]
+    plot_ipr_vs_energy_multi(filenames, title_params={'U0':r'$U$','V0':r'$V$', 'W':r'$W$', 'cutoff':r'$k_{max}$'}, 
+                             label_param='a', label_param_label=r'$N_a$',
+                             cmap_name='rainbow', bin_width=None, alpha=0.6, linewidth=0)
     # f = 'Approximant/Data/8Fold/SpectralFunction/Data_GMKG_R8_a7_c2.5_U0.03_N5_V0.0.npz'
     # U = 0.03
     # V = 0.00
